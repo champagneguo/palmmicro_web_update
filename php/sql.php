@@ -11,9 +11,8 @@ require_once('sql/sqlmember.php');
 require_once('internallink.php');
 
 require_once('_private.php');
-require_once('sql/_sqlcommon.php');
 
-define('DB_DATABASE', 'n5gl0n39mnyn183l_camman');
+require_once('sql/_sqlcommon.php');
 
 define('TABLE_MEMBER', 'member');
 define('TABLE_PAGE', 'page');
@@ -196,7 +195,7 @@ function SqlConnectDatabase()
 
 	global $g_link;
 
-	$g_link = mysqli_connect('mysql', 'n5gl0n39mnyn183l_woody', DB_PASSWORD);	// Connect to mysql server
+	$g_link = mysqli_connect(DB_HOST, DB_USERNAME, DB_PASSWORD);	// Connect to mysql server
 	if (!$g_link)		die('Failed to connect to server');
 
 	mysqli_set_charset($g_link, 'utf8');

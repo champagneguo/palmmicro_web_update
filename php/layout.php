@@ -6,8 +6,8 @@ require_once('analytics.php');
 require_once('adsense.php');
 require_once('ui/echohtml.php');
 
-require_once('Mobile-Detect/standalone/autoloader.php');
-require_once('Mobile-Detect/src/MobileDetectStandalone.php');
+// require_once('Mobile-Detect/standalone/autoloader.php');
+// require_once('Mobile-Detect/src/MobileDetectStandalone.php');
 use Detection\Exception\MobileDetectException;
 use Detection\MobileDetectStandalone;
 
@@ -18,16 +18,16 @@ define('MIN_SCRREN_WIDTH', DEFAULT_DISPLAY_WIDTH + 10 + DEFAULT_ADSENSE_WIDTH);	
 
 function LayoutIsMobilePhone()
 {
-	$detect = new MobileDetectStandalone();
-	$detect->setUserAgent($_SERVER['HTTP_USER_AGENT'] ?? '');
-	try 
-	{
-		if ($detect->isMobile() && !$detect->isTablet())	return true;
-	}
-	catch (MobileDetectException $e) 
-	{
-		DebugPrint($e);
-	}
+// 	$detect = new MobileDetectStandalone();
+// 	$detect->setUserAgent($_SERVER['HTTP_USER_AGENT'] ?? '');
+// 	try
+// 	{
+// 		if ($detect->isMobile() && !$detect->isTablet())	return true;
+// 	}
+// 	catch (MobileDetectException $e)
+// 	{
+// 		DebugPrint($e);
+// 	}
     return false;
 }
 
