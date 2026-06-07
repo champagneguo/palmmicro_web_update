@@ -22,11 +22,11 @@ function _echoFundListItem($ref, $sql, $last_sql, $callback)
 	$ar[] = SymCalibrationHistoryLink($ref);
     $ar[] = _getFundPairLink($ref->GetPairRef());
     $ar[] = GetNumberDisplay($fPos);
-    $ar[] = number_format($fFactor, NETVALUE_PRECISION);
+    $ar[] = GetNumberDisplay($fFactor, CALIBRATION_PRECISION);
     $ar[] = $strDate;
     if ($callback)
     {
-    	$ar[] = number_format(call_user_func($callback, $fPos, $fFactor, $strDate, $strStockId));
+    	$ar[] = GetNumberDisplay(call_user_func($callback, $ref->GetSymbol()), 0);
     }
     else
     {
@@ -38,18 +38,19 @@ function _echoFundListItem($ref, $sql, $last_sql, $callback)
 function EchoFundListParagraph($arRef, $callback = false)
 {
 	$str = GetFundListLink();
-	EchoTableParagraphBegin(array(new TableColumnSymbol(),
-								   new TableColumnSymbol('跟踪'),
-								   new TableColumnPosition(),
-								   new TableColumnCalibration(),
-								   new TableColumnDate(),
-								   ($callback ? new TableColumnHedge() : new TableColumn('参考值'))
-								   ), 'fundlist', $str);
-	
-	$sql = GetCalibrationSql();
-	$last_sql = new LastCalibrationSql();
-	foreach ($arRef as $ref)		_echoFundListItem($ref, $sql, $last_sql, $callback);
-    EchoTableParagraphEnd();
+	if (EchoTableParagraphBegin(array(new TableColumnSymbol(),
+									  new TableColumnSymbol('跟踪'),
+									  new TableColumnPosition(),
+									  new TableColumnCalibration(),
+									  new TableColumnDate(),
+									  ($callback ? new TableColumnHedge() : new TableColumn('参考值'))
+									 ), 'fundlist', $str))
+	{
+		$sql = GetCalibrationSql();
+		$last_sql = new LastCalibrationSql();
+		foreach ($arRef as $ref)		_echoFundListItem($ref, $sql, $last_sql, $callback);
+    	EchoTableParagraphEnd();
+	}							   
 }
 
 ?>

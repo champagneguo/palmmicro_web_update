@@ -15,7 +15,7 @@ class QdiiAccount extends QdiiGroupAccount
         $strSymbol = $this->GetName();
         $strEstSymbol = QdiiGetEstSymbol($strSymbol);
         $arLev = $this->GetLeverageSymbols($strEstSymbol);
-		$ar = array($strSymbol, $strCNH);
+		$ar = [$strSymbol, $strCNH];
 /*		if (in_arrayOilQdii($strSymbol))
 		{
 			$strOil = 'hf_OIL';
@@ -35,17 +35,17 @@ class QdiiAccount extends QdiiGroupAccount
         $this->ref = new QdiiReference($strSymbol);
         $this->cnh_ref = new MyStockReference($strCNH);
         if ($strOil)	$this->oil_ref = new MyStockReference($strOil);
-        
-        if ($strEstSymbol == 'KWEB')
+
+       	$est_ref = $this->ref->GetEstRef();
+		if ($strEstSymbol == 'KWEB')
         {
-        	$est_ref = $this->ref->GetEstRef();
         	if ($strDate = NeedOfficialWebData($est_ref))
         	{
         		$strEstId = $est_ref->GetStockId();
 				if ($strNetValue = GetKraneNetValue($est_ref, $strDate))
 				{
 					$net_sql = GetNetValueHistorySql();
-					$net_sql->ModifyDaily($strEstId, $strDate, $strNetValue);
+					$net_sql->WriteDaily($strEstId, $strDate, $strNetValue);
 				}
 				else
 				{
@@ -68,7 +68,10 @@ function EchoAll()
     EchoFundEstParagraph($ref);
     if (method_exists($est_ref, 'GetHoldingsDate'))		EchoHoldingsEstParagraph($est_ref);
     
-    EchoReferenceParagraph(array_merge($acct->GetStockRefArray(), array($acct->oil_ref, $acct->cnh_ref), $ref->GetForexRefArray()), $acct->IsAdmin());
+    EchoReferenceParagraph(array_merge($acct->GetStockRefArray(),
+									   [$acct->oil_ref, $acct->cnh_ref],
+									   $ref->GetForexRefArray()),
+						   $acct->IsAdmin());
     $acct->EchoCommonParagraphs();
     if ($group = $acct->EchoTransaction()) 
     {

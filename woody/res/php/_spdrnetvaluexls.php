@@ -69,7 +69,7 @@ function _readXlsFile($bIshares, $strPathName, $net_sql, $shares_sql, $strStockI
    			}
 		}
 	}
-	return '更新'.strval($iCount).'条净值和'.strval($iSharesCount).'条流通股数';
+	return '更新'.strval($iCount).'条'.STOCK_DISP_NETVALUE.'和'.strval($iSharesCount).'条流通股数';
 }
 
 function GetNetValueXlsStr($sym, $bAutoCheck = false)
@@ -78,17 +78,14 @@ function GetNetValueXlsStr($sym, $bAutoCheck = false)
    	if ($strUrl = GetEtfNetValueUrl($strSymbol))
 	{
 		$bIshares = (stripos($strUrl, 'ishares') !== false) ? true : false;
-		$strPathName = DebugGetPathName('netvalue_'.$strSymbol.'.xls');
-		
 		if ($bAutoCheck)	
 		{
-			if ($bIshares)													return '目前不对ISHARES的ETF做自动更新';
-			if (StockNeedFile($strFileName, SECONDS_IN_HOUR) == false)		return '避免频繁自动更新文件';   // update on every hour
+			if ($bIshares)	return '目前不对ISHARES的ETF做自动更新';
 		}
-		
-		if ($str = url_get_contents($strUrl))
+
+		$strPathName = DebugGetPathName('netvalue_'.$strSymbol.'.xls');
+		if ($str = StockSaveDebugFile($strPathName, $strUrl))
 		{
-			file_put_contents($strPathName, $str);
 			$sym->SetTimeZone();
 			$strStockId = SqlGetStockId($strSymbol);
 			$net_sql = GetNetValueHistorySql();

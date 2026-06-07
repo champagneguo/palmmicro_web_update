@@ -95,45 +95,41 @@
 
 function SzseGetLofShares($ref)
 {
-	if ($ref->IsShenZhenLof() == false)					return;				// Only works for Shenzhen Lof
+	if ($ref->IsShenZhenLof() == false)				return;				// Only works for Shenzhen Lof
 	
 	$sql = new SharesHistorySql();
 	$strDate = $ref->GetDate();
 	$strStockId = $ref->GetStockId();
 	if ($sql->GetRecord($strStockId, $strDate))		return;				// Already has today's data
-	if ($ref->GetHourMinute() < 915)						return;				// Data not updated until 9:15
+	if ($ref->GetHourMinute() < 915)				return;				// Data not updated until 9:15
 	
-//    date_default_timezone_set('PRC');
-	$ref->SetTimeZone();
-	$strFileName = DebugGetSymbolFile('szse', $ref->GetSymbol());
-	if (StockNeedFile($strFileName, 2 * SECONDS_IN_MIN) == false)	return;	// updates on every 2 minutes
 
-	$strUrl = GetSzseUrl().'api/report/ShowReport/data?SHOWTYPE=JSON&CATALOGID=1945_LOF&txtQueryKeyAndJC='.$ref->GetDigitA();
-   	if ($str = url_get_contents($strUrl))
-    {
-   		file_put_contents($strFileName, $str);
-   		if ($ar = json_decode($str, true))
-   		{
-   			$ar0 = $ar[0];
-   			if (isset($ar0['metadata']))
-   			{
-   				$arMetaData = $ar0['metadata'];
-   				if ($arMetaData['subname'] == $strDate)
-   				{
-   					if (isset($ar0['data']))
-   					{
-   						$arData = $ar0['data'];
-   						$arData0 = $arData[0];
-   						$strClose = str_replace(',', '', $arData0['dqgm']);
-   						$sql->WriteDaily($strStockId, $strDate, $strClose);
-   						DebugString(__FUNCTION__.': '.$strClose);
-   					}
-   					else	DebugString(__FUNCTION__.' no data');
-   				}
-   				else	DebugString(__FUNCTION__.' different date: '.$arMetaData['subname'].' '.$strDate);
-   			}
-   			else	DebugString(__FUNCTION__.' no metadata');
-   		}
+	$strFileName = DebugGetPathName('debugszse.txt');
+	if (StockNeedFile($strFileName) == false)		return;				// pause 1 minute after curl error response
+	$ref->SetTimeZone();
+	if ($ar = StockDebugJson(DebugGetSymbolFile('szse', $ref->GetSymbol()),
+							 GetSzseUrl().'api/report/ShowReport/data?SHOWTYPE=JSON&CATALOGID=1945_LOF&txtQueryKeyAndJC='.$ref->GetDigitA(),
+							 20 * SECONDS_IN_MIN, false, $strFileName))	
+	{
+		$ar0 = $ar[0];
+		if (isset($ar0['metadata']))
+		{
+			$arMetaData = $ar0['metadata'];
+			if ($arMetaData['subname'] == $strDate)
+			{
+				if (isset($ar0['data']))
+				{
+					$arData = $ar0['data'];
+					$arData0 = $arData[0];
+					$strClose = str_replace(',', '', $arData0['dqgm']);
+					$sql->WriteDaily($strStockId, $strDate, $strClose);
+					DebugString(__FUNCTION__.': '.$strClose);
+				}
+				else	DebugString(__FUNCTION__.' no data');
+			}
+			else	DebugString(__FUNCTION__.' different date: '.$arMetaData['subname'].' '.$strDate);
+		}
+		else	DebugString(__FUNCTION__.' no metadata');
    	}
 }
 

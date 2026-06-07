@@ -1,24 +1,5 @@
 <?php
 
-function PairNetValueGetClose($ref, $strDate)
-{
-	if ($ref->IsSinaFutureCN())
-	{
-		$his_sql = GetStockHistorySql();
-		return $his_sql->GetAdjClose($ref->GetStockId(), $strDate);
-	}
-	
-	if ($ref->IsFund())
-	{
-		$sql = GetNetValueHistorySql();
-	}
-	else
-	{
-		$sql = GetStockHistorySql();
-	}
-    return $sql->GetClose($ref->GetStockId(), $strDate);
-}
-
 class MyPairReference extends MyStockReference
 {
     var $pair_ref = false;
@@ -49,7 +30,11 @@ class MyPairReference extends MyStockReference
         	else if ($this->pair_ref->IsSymbolH())
         	{
         		if ($this->IsSymbolA())			$strCNY = 'HKCNY';
-				else if ($this->IsSymbolUS())	$this->cny_ref = new UsdHkdReference();
+				else if ($this->IsSymbolUS())	$this->cny_ref = new MyStockReference('fx_susdhkd');
+        	}
+        	else if ($strPair == 'znb_SENSEX')
+        	{
+				$this->cny_ref = new MyStockReference('fx_susdinr');
         	}
         	else
         	{
@@ -102,7 +87,7 @@ class MyPairReference extends MyStockReference
     	if ($fCny == false)		$fCny = $this->GetDefaultCny();
     	
     	if ($this->IsSymbolA())	$fVal = QdiiGetVal($fPairVal, $fCny, $this->fFactor);
-    	else						$fVal = ($fPairVal / $fCny) / $this->fFactor;
+    	else					$fVal = ($fPairVal / $fCny) / $this->fFactor;
 		return FundAdjustPosition($this->GetPosition(), $fVal, ($this->fLastCalibrationVal ? $this->fLastCalibrationVal : $fVal));
     }
     
@@ -190,14 +175,13 @@ class FundPairReference extends MyPairReference
     {
 		$strStockId = $this->GetStockId();
 		$strDate = $this->GetDate();
-		$strPrice = $this->GetPrice();
 		
-		$fFactor = $this->CalcFactor($this->pair_ref->GetPrice(), $strPrice, $strDate);
+		$fFactor = $this->CalcFactor($this->pair_ref->GetVal(), $this->GetVal(), $strDate);
 		$cal_sql = GetCalibrationSql();
         $cal_sql->WriteDailyAverage($strStockId, $strDate, strval($fFactor));
         			
         $sql = new LastCalibrationSql();
-        $sql->WriteVal($strStockId, $strPrice); 
+        $sql->WriteVal($strStockId, $this->GetPrice()); 
         $this->LoadCalibration();
     }
 
@@ -211,9 +195,9 @@ class FundPairReference extends MyPairReference
 		
 		if ($strNetValue = $net_sql->GetCloseNow($strStockId))
 		{
-			if ($strPairNetValue = PairNetValueGetClose($this->pair_ref, $strDate))	
+			if ($fPairNetValue = $this->pair_ref->GetNetValue($strDate))	
 			{
-				$fFactor = $this->CalcFactor($strPairNetValue, $strNetValue, $strDate);
+				$fFactor = $this->CalcFactor($fPairNetValue, floatval($strNetValue), $strDate);
 				$cal_sql->WriteDaily($strStockId, $strDate, strval($fFactor));
         	
 				$this->LoadCalibration();
@@ -226,10 +210,8 @@ class FundPairReference extends MyPairReference
     	return $this->netvalue_ref ? $this->netvalue_ref : $this;
     }
     
- 	function CalcFactor($strPairNetValue, $strNetValue, $strDate)
+ 	function CalcFactor($fPairNetValue, $fNetValue, $strDate)
  	{
- 		$fPairNetValue = floatval($strPairNetValue); 
- 		$fNetValue = floatval($strNetValue); 
  		if ($this->cny_ref)
  		{
  			$fCny = $this->cny_ref->GetVal($strDate);
@@ -257,17 +239,16 @@ class FundPairReference extends MyPairReference
     {
         $strOfficialDate = $this->GetOfficialDate();
         $fCny = $this->cny_ref ? $this->cny_ref->GetVal($strOfficialDate) : false;
-		if ($this->pair_ref->IsSinaFutureCN())
+		if ($this->pair_ref->IsSinaFutureExceptGoldCN())
 		{
-			$strEst = $this->pair_ref->strVWAP;
-//			DebugString(__FUNCTION__.' VWAP '.$strEst, true);
+			$fEst = floatval($this->pair_ref->strVWAP);
 		}
-		else if (($strEst = PairNetValueGetClose($this->pair_ref, $strOfficialDate)) == false)
+		else if (($fEst = $this->pair_ref->GetNetValue($strOfficialDate)) == false)
 		{
-			$strEst = $this->pair_ref->GetPrice();
+			$fEst = $this->pair_ref->GetVal();
 		}
 		
-   		$fVal = $this->EstFromPair(floatval($strEst), $fCny);
+   		$fVal = $this->EstFromPair($fEst, $fCny);
    		if ($this->pair_ref->GetHourMinute() < 2055)	StockUpdateEstResult($this->GetStockId(), $fVal, $strOfficialDate);
         return $fVal;
     }
@@ -279,7 +260,7 @@ class FundPairReference extends MyPairReference
         {
         	if ($strOfficialDate != $this->cny_ref->GetDate())		return $this->EstFromPair($this->pair_ref->GetVal(), $this->cny_ref->GetVal());
         }
-       	if ($this->pair_ref->IsSinaFutureCN() || ($strOfficialDate != $this->pair_ref->GetDate()))			return $this->EstFromPair($this->pair_ref->GetVal());
+       	if ($this->pair_ref->IsSinaFutureExceptGoldCN() || ($strOfficialDate != $this->pair_ref->GetDate()))			return $this->EstFromPair($this->pair_ref->GetVal());
     	return false;
     }
 

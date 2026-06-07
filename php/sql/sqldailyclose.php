@@ -75,7 +75,7 @@ class DailyCloseSql extends KeySql
     {
     	if ($record = $this->$callback($strKeyId, $strDate))
     	{
-    		return rtrim0($record['close']);
+    		return $record['close'];
     	}
     	return false;
     }
@@ -83,6 +83,22 @@ class DailyCloseSql extends KeySql
     function GetClose($strKeyId, $strDate)
     {
     	return $this->_getCloseString('GetRecord', $strKeyId, $strDate);
+    }
+
+    function GetProportion($strKeyId, $strDate, $strPrevDate)
+    {
+		if ($str = $this->GetClose($strKeyId, $strDate))
+		{
+			if ($strPrev = $this->GetClose($strKeyId, $strPrevDate))
+			{
+                $fPrev = floatval($strPrev);
+                if ($fPrev > MIN_FLOAT_VAL)
+                {
+    				return floatval($str) / $fPrev;
+                }
+			}
+		}
+	 	return false;
     }
 
     function GetClosePrev($strKeyId, $strDate)
@@ -193,17 +209,58 @@ class DailyCloseSql extends KeySql
 
     function DeleteClose($str = '0.000000')
     {
-    	$this->DeleteData("close = '$str'");
+    	return $this->DeleteData("close = '$str'");
     }
 
-    function ModifyDaily($strKeyId, $strDate, $strClose)
+    function GetSwitchDates($strKeyId)
     {
-    	if (empty($strClose))
-    	{
-    		$this->DeleteByDate($strKeyId, $strDate);
-    		return false;
-    	}
-		return $this->WriteDaily($strKeyId, $strDate, $strClose);
+	    $arDate = array();
+	    $bFirst = true;
+        if ($result = $this->GetAll($strKeyId)) 
+        {
+            while ($record = mysqli_fetch_assoc($result)) 
+            {
+       		    $strDate = $record['date'];
+			    $fCur = floatval($record['close']);
+   			    if ($bFirst)
+   			    {
+   				    $arDate[] = $strDate;
+   				    $bSecond = true;
+   				    $bFirst = false;
+   		    	}
+   			    else
+   			    {
+   				    if ($bSecond)
+   				    {
+   					    $bUp = ($fOld > $fCur) ? true : false;
+   					    $bSecond = false;
+   				    }
+   				    else
+   				    {
+   					    if ($bUp)
+   					    {
+   						    if ($fOld < $fCur)
+   						    {
+   							    $bUp = false;
+   							    $arDate[] = $strOldDate;
+   						    }
+   					    }
+   					    else
+   					    {
+   						    if ($fOld > $fCur)
+   						    {
+   							    $bUp = true;
+   							    $arDate[] = $strOldDate;
+   						    }
+   					    }
+       			    }
+       		    }
+			    $fOld = $fCur;
+			    $strOldDate = $strDate;
+            }
+            mysqli_free_result($result);
+        }
+        return $arDate;
     }
 }
 

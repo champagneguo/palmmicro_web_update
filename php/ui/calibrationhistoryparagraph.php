@@ -5,11 +5,11 @@ function _echoCalibrationHistoryItem($fPosition, $ref, $record, $iMultiplier)
 {
 	$fCalibration = floatval($record['close']);
 	$strDate = $record['date'];
-	$ar = array($strDate, number_format($fCalibration, NETVALUE_PRECISION), GetHM($record['time']), $record['num']);
+	$ar = array($strDate, GetNumberDisplay($fCalibration, CALIBRATION_PRECISION), GetHM($record['time']), $record['num']);
 	if ($fPosition)
 	{
 		$ar[] = $ref->GetNetValueDisplay($ref->GetNetValue($strDate));
-		$ar[] = number_format(StockCalcHedge($fCalibration, $fPosition) * $iMultiplier);
+		$ar[] = GetNumberDisplay(StockCalcHedge($fCalibration, $fPosition) * $iMultiplier, 0);
 	}
 	EchoTableColumn($ar);
 }
@@ -27,7 +27,7 @@ function EchoCalibrationHistoryParagraph($ref, $iStart = 0, $iNum = TABLE_COMMON
    	else
    	{
    		$strMenuLink = StockGetMenuLink($strSymbol, $cal_sql->Count($strStockId), $iStart, $iNum);
-   		$strLink = GetFundListLink().' '.GetFundLinks($strSymbol).'<br />'.$strMenuLink;
+   		$strLink = GetFundListLink().' '.GetFundLinks($strSymbol).GetHtmlNewLine().$strMenuLink;
    	}
     
    	$ar = array(new TableColumnDate(), new TableColumnCalibration(), new TableColumnTime(), new TableColumn('次数', 50));
@@ -64,16 +64,18 @@ function EchoCalibrationHistoryParagraph($ref, $iStart = 0, $iNum = TABLE_COMMON
 		break;
 	}
 
-	EchoTableParagraphBegin($ar, $strSymbol.'calibrationhistory', $strLink);
-    if ($result = $cal_sql->GetAll($strStockId, $iStart, $iNum)) 
-    {
-        while ($record = mysqli_fetch_assoc($result)) 
-        {
-			_echoCalibrationHistoryItem($fPosition, $ref, $record, $iMultiplier);
-        }
-        mysqli_free_result($result);
-    }
-    EchoTableParagraphEnd($strMenuLink);
+	if (EchoTableParagraphBegin($ar, $strSymbol.'calibrationhistory', $strLink))
+	{
+	    if ($result = $cal_sql->GetAll($strStockId, $iStart, $iNum)) 
+    	{
+        	while ($record = mysqli_fetch_assoc($result)) 
+        	{
+				_echoCalibrationHistoryItem($fPosition, $ref, $record, $iMultiplier);
+        	}
+        	mysqli_free_result($result);
+    	}
+    	EchoTableParagraphEnd($strMenuLink);
+	}
 }
 
 ?>

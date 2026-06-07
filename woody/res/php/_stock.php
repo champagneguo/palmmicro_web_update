@@ -10,19 +10,6 @@ require_once('_edittransactionform.php');
 require_once('_stocklink.php');
 
 // ****************************** Money table *******************************************************
-function _EchoMoneyParagraphBegin()
-{
-	$strMoney = '单一货币';
-	$profit_col = new TableColumnProfit();
-	EchoTableParagraphBegin(array(new TableColumnGroupName(),
-								   new TableColumnProfit(DISP_ALL_CN),
-								   new TableColumnHolding(DISP_ALL_CN),
-								   new TableColumnProfit($strMoney),
-								   new TableColumnHolding($strMoney),
-								   new TableColumnTest()
-								   ), 'money', GetMyStockGroupLink().$profit_col->GetDisplay());
-}
-
 function _echoMoneyItem($strGroup, $fValue, $fProfit, $fConvertValue, $fConvertProfit)
 {
 	global $acct;
@@ -63,7 +50,7 @@ function _echoMoneyItem($strGroup, $fValue, $fProfit, $fConvertValue, $fConvertP
 				switch ($strEmail)
 				{
 				case ADMIN_EMAIL:
-					$ar[] = GetNumberDisplay($fConvertProfit - 2074742.95);
+					$ar[] = GetNumberDisplay($fConvertProfit - 1679328.22);
 					break;
 				
 				case 'mix@palmmicro.com':
@@ -103,20 +90,44 @@ function _EchoMoneyGroupData($acct, $group, $strUSDCNY, $strHKDCNY)
     }
 }
 
-// ****************************** Misc *******************************************************
+function StockSaveDebugFile($strPathName, $strUrl, $iInterval = SECONDS_IN_MIN, $arExtraHeaders = false, $strFileName = false)
+{
+	if (StockNeedFile($strPathName, $iInterval) == false)	return false; 	// do not update too often
+	
+	if ($str = url_get_contents($strUrl, $arExtraHeaders, $strFileName))
+	{
+		file_put_contents($strPathName, $str);
+		DebugString($strUrl.' saved to '.basename($strPathName));
+		return $str;
+	}
+
+	DebugString('mark failed '.$strPathName);
+	file_put_contents($strPathName, 'failed');
+	return false;
+}
+
+function StockDebugJson($strPathName, $strUrl, $iInterval = SECONDS_IN_MIN, $arExtraHeaders = false, $strFileName = false)
+{
+	if ($str = StockSaveDebugFile($strPathName, $strUrl, $iInterval, $arExtraHeaders, $strFileName))
+	{
+		return json_decode($str, true);
+	}
+	return false;
+}
+
+function StockDebugXml($strPathName, $strUrl, $iInterval = SECONDS_IN_MIN, $arExtraHeaders = false, $strFileName = false)
+{
+	if ($str = StockSaveDebugFile($strPathName, $strUrl, $iInterval, $arExtraHeaders, $strFileName))
+	{
+		return simplexml_load_string($str);
+	}
+	return false;
+}
+
 function StockSaveDebugCsv($strFileName, $strUrl, $arExtraHeaders = false)
 {
    	$csv = new DebugCsvFile($strFileName);
-   	$strPathName = $csv->GetPathName();
-	if (StockNeedFile($strPathName, 5 * SECONDS_IN_MIN) == false)	return false; 	// updates on every 5 minutes
-	
-	if ($str = url_get_contents($strUrl, $arExtraHeaders))
-	{
-		file_put_contents($strPathName, $str);
-		DebugString('Saved '.$strUrl.' to '.$strFileName);
-		return true;
-	}
-	return false;
+	return StockSaveDebugFile($csv->GetPathName(), $strUrl, 5 * SECONDS_IN_MIN, $arExtraHeaders);
 }
 
 function StockGetHoldingsReference($strSymbol)

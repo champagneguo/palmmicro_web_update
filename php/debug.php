@@ -1,7 +1,7 @@
 <?php
 require_once('url.php');
 
-define('DEBUG_TIME_ZONE', 'PRC');
+define('DEBUG_TIME_ZONE', 'Asia/Shanghai');
 
 define('SECONDS_IN_MIN', 60);
 define('SECONDS_IN_HOUR', 3600);
@@ -11,6 +11,7 @@ define('SECONDS_IN_DAY', 86400);
 define('MIN_FLOAT_VAL', 0.0000005);
 define('FLOAT_PRECISION', 6);
 define('NETVALUE_PRECISION', 4);
+define('CALIBRATION_PRECISION', 3);
 
 function IsZeroString($strZero)
 {
@@ -35,7 +36,7 @@ function mysql_round($str, $iPrecision = FLOAT_PRECISION)
 	return strval_round(floatval($str), $iPrecision);
 }
 
-function strval_round_implode($arVal, $strSeparator = ': ')
+function strval_round_implode($arVal, $strSeparator = ', ')
 {
 	$str = '';
 	foreach ($arVal as $fVal)
@@ -77,6 +78,16 @@ function unlinkEmptyFile($strFileName)
 			file_put_contents($strFileName, '');
 		}
 	}
+}
+
+function DebugEncode($arJson)
+{
+	return substr(json_encode($arJson), 1, -1);
+}
+
+function DebugDecode($strJson)
+{
+	return json_decode('{'.$strJson.'}', true);
 }
 
 function DebugFormat_date($strFormat, $iTime = false, $strTimeZone = DEBUG_TIME_ZONE)
@@ -136,6 +147,11 @@ function DebugGetPathName($strFileName)
 function DebugGetFile()
 {
     return DebugGetPathName('debug.txt');
+}
+
+function DebugGetNetValueFile($strSymbol)
+{
+	return DebugGetPathName('netvalue_'.$strSymbol.'.txt');
 }
 
 function DebugIsPalmmicro()

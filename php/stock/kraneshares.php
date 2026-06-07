@@ -14,26 +14,12 @@ Array
 function GetKraneNetValue($ref, $strPrevDate)
 {
 	$strStockId = $ref->GetStockId();
-//	$strDate = $ref->GetDate();
-//	$net_sql = GetNetValueHistorySql();
-// 	$strNetValueDate = $net_sql->GetDateNow($strStockId);	
-//	if ($strNetValueDate == $strDate)	return false;		// already have current net value
 	$his_sql = GetStockHistorySql();
-//	$strPrevDate = $his_sql->GetDatePrev($strStockId, $strDate);
-//	if ($strNetValueDate == $strPrevDate)	return false;		// already up to date
 	
-//	$ref->SetTimeZone();
 	date_default_timezone_set('Europe/London');
 	$strSymbol = $ref->GetSymbol();
-	$strFileName = DebugGetPathName('netvalue_'.$strSymbol.'.txt');
-	if (StockNeedFile($strFileName) == false)	return false; 	// updates on every minute
-
-	$strUrl = GetKraneUrl()."product-json/?pid=477&type=premium-discount&start=$strPrevDate&end=$strPrevDate";
-   	if ($str = url_get_contents($strUrl))
-   	{
-   		DebugString($strUrl.' save new file to '.$strFileName);
-   		file_put_contents($strFileName, $str);
-   		$ar = json_decode($str, true);
+	if ($ar = StockDebugJson(DebugGetNetValueFile($strSymbol), GetKraneUrl()."product-json/?pid=7615&type=premium-discount&start=$strPrevDate&end=$strPrevDate"))
+	{
 		if (!isset($ar[0]))			
 		{
 			DebugString('no data');

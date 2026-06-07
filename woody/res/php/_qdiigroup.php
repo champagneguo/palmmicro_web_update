@@ -37,27 +37,13 @@ function _tradingUserDefined($strVal = false)
    	return TableColumnGetStock($est_ref).$strLev.TableColumnGetPrice();
 }
 
-function _callbackFundListHedge($fPos, $fFactor, $strDate, $strStockId)
+//function _callbackFundListHedge($fPos, $fFactor, $strDate, $strStockId)
+function _callbackFundListHedge($strSymbol)
 {
 	global $acct;
     
 	$ref = $acct->GetRef();
-   	$fQdiiPos = $ref->GetPosition();
-   	
-   	$cal_sql = GetCalibrationSql();
-	if ($record = $cal_sql->GetRecordNow($ref->GetStockId()))
-    {
-		$fQdiiCalibration = floatval($record['close']);
-		$strQdiiDate = $record['date']; 
-		if ($strQdiiDate != $strDate)
-		{
-			if ($strFactor = $cal_sql->GetCloseFrom($strStockId, $strQdiiDate))		$fFactor = floatval($strFactor);
-			else																		return '';
-			// DebugString(__FUNCTION__.' Reload calibration factor because of difference date: '.$strQdiiDate.' '.$strDate);
-		}
-		return StockCalcLeverageHedge($fQdiiCalibration, $fQdiiPos, $fFactor, $fPos);
-	}
-	return 1.0;
+	return GetStockHedge($ref->GetSymbol(), $ref->GetStockId(), $strSymbol);
 }
 
 class QdiiGroupAccount extends FundGroupAccount 
@@ -69,10 +55,10 @@ class QdiiGroupAccount extends FundGroupAccount
     	$ref = $this->GetRef();
     	$stock_ref = $ref->GetStockRef();
        	$est_ref = $ref->GetEstRef();
-       	$arRef = array($stock_ref, $est_ref);
+       	$arRef = [$stock_ref, $est_ref];
 		if ($realtime_ref = $ref->GetRealtimeRef())		$arRef[] = $realtime_ref;
     	
-        if ($ar = YahooUpdateNetValue($est_ref))
+        if (YahooUpdateNetValue($est_ref))
         {
         	if ($est_ref->GetSymbol() == 'INDA')	$est_ref->DailyCalibration();
         }
@@ -86,7 +72,7 @@ class QdiiGroupAccount extends FundGroupAccount
     		$this->ar_leverage_ref[] = $leverage_ref;
     		if ($strSymbol == 'QQQ')
     		{
-//    			if (NeedOfficialWebData($leverage_ref))		UpdateInvescoNetValue($strSymbol);
+    			if (NeedOfficialWebData($leverage_ref))		UpdateInvescoNetValue($strSymbol);
     		}
     		else
     		{
@@ -147,10 +133,11 @@ function GetMetaDescription()
     
     $fund = $acct->GetRef();
     $cny_ref = $fund->GetCnyRef();
-	$strBase = SqlGetStockName($cny_ref->GetSymbol());
-    if ($est_ref = $fund->GetEstRef())     $strBase .= '、'.SqlGetStockName($est_ref->GetSymbol());
+	$strBase = RefGetStockDisplay($cny_ref);
+    if ($est_ref = $fund->GetEstRef())     			$strBase .= '、'.RefGetStockDisplay($est_ref);
+	if ($realtime_ref = $fund->GetRealtimeRef())	$strBase .= '、'.RefGetStockDisplay($realtime_ref);
     
-    $str = '根据'.$strBase.'等其它网站的数据来源估算'.$acct->GetStockDisplay().'净值的网页工具。';
+    $str = '根据'.$strBase.'等其它网站的数据来源估算'.$acct->GetStockDisplay().STOCK_DISP_NETVALUE.'的网页工具。';
     return CheckMetaDescription($str);
 }
 

@@ -5,6 +5,8 @@ require_once('../php/gb2312.php');
 require_once('../php/iplookup.php');
 require_once('../php/benfordimagefile.php');
 require_once('../php/linearimagefile.php');
+require_once('../php/tutorial/cramersrule.php');
+require_once('../php/tutorial/gaussianelimination.php');
 require_once('../php/tutorial/dice.php');
 require_once('../php/tutorial/primenumber.php');	// require /php/sql/sqltable.php
 require_once('../php/sql/sqlkeystring.php');
@@ -18,7 +20,7 @@ require_once('../php/stock.php');
 
 function HexView($strInput)
 {
-	$str = '<br />Hex: ';
+	$str = GetHtmlNewLine().'Hex: ';
    	for ($i = 0; $i < strlen($strInput); $i++)
    	{
    		$iChar = ord($strInput[$i]);
@@ -39,13 +41,14 @@ function _getCommonPhraseString($strInput, $strMemberId, $bChinese)
 	}
 	
 	$strConfirm = $bChinese ? '确认删除' : 'Confirm Delete';
+	$strNewLine = GetHtmlNewLine();
 	$str = '';
 	if ($result = $sql->GetAll($strMemberId)) 
 	{
 		while ($record = mysqli_fetch_assoc($result)) 
 		{
 			$strVal = $record['str'];
-		    $str .= GetOnClickLink('/account/submitcommonphrase.php?delete='.$record['id'], $strConfirm.': '.$strVal.'?', $strVal).'<br />';
+		    $str .= GetOnClickLink('/account/submitcommonphrase.php?delete='.$record['id'], $strConfirm.': '.$strVal.'?', $strVal).$strNewLine;
 		}
 		mysqli_free_result($result);
 	}
@@ -55,7 +58,7 @@ function _getCommonPhraseString($strInput, $strMemberId, $bChinese)
 function _getBenfordsLawString($strInput, $bChinese)
 {
     $jpg = new BenfordImageFile();
-    $jpg->Draw(explode(';', $strInput));
+    $jpg->Draw(explode(',', $strInput));
     return $jpg->GetAll($bChinese ? '总数' : 'Total');
 }
 
@@ -102,6 +105,19 @@ function _getDiceCaptchaString($strInput, $bChinese)
 	return ($bChinese ? '数据格式不对' : 'Wrong data format');
 }
 
+function isValidXml($str) 
+{
+    libxml_use_internal_errors(true);
+    $xml = simplexml_load_string($str);
+    $errors = libxml_get_errors();
+    libxml_clear_errors();
+    if (!empty($errors)) 
+	{
+        return false;
+    }
+    return $xml;
+}
+
 function _getSimpleTestString($strInput, $bChinese)
 {
 	if (str_starts_with($strInput, 'http'))
@@ -110,20 +126,25 @@ function _getSimpleTestString($strInput, $bChinese)
     	{
     		$strFileName = DebugGetPathName('simpletest.txt');
     		file_put_contents($strFileName, $strRead);
-    		DebugString('Saved '.$strInput.' to '.$strFileName);
+    		DebugString('Saved '.$strInput.' to '.basename($strFileName));
    		   	$strNewLine = GetHtmlNewLine();
     		$str = GetFileDebugLink($strFileName).$strNewLine;
     		if ($ar = json_decode($strRead, true))
     		{
-    			DebugPrint($ar);
-    			$str .= ConvertToHtmlDisplay(print_r($ar, true));
+    			DebugPrint($ar, 'json_decode成功');
+				$strOutput = print_r($ar, true);
     		}
+			else if ($xml = isValidXml($strRead))
+			{
+				DebugPrint($xml, 'simplexml_load_string成功');
+				$strOutput = print_r($xml, true);
+			}
     		else
     		{
-    			$strRead = strip_tags($strRead);
-    			DebugString($strRead);
-    			$str .= ConvertToHtmlDisplay($strRead);
+    			$strOutput = strip_tags($strRead);
+    			DebugString($strOutput);
     		}
+   			$str .= ConvertToHtmlDisplay($strOutput);
     	}
     	else	$str = $bChinese ? 'Curl读错误' : 'Curl read error';
 	}
@@ -229,7 +250,7 @@ function _getLinearRegressionStockArrays(&$arX, &$arY, $strInput, $strSeparator,
 
 function _getLinearRegressionArrays(&$arX, &$arY, $strInput, $strSeparator, $strNewLine, $strFunction)
 {
-	$fCount = 0.0;
+/*	$fCount = 0.0;
 	$ar = explode(';', $strInput);
 	foreach ($ar as $str)
 	{
@@ -251,9 +272,49 @@ function _getLinearRegressionArrays(&$arX, &$arY, $strInput, $strSeparator, $str
 		$arX[] = $fX;
 		$arY[] = empty($strFunction) ? $fY : call_user_func($strFunction, $fY);
 	}
+*/
+	$ar = json_decode('['.$strInput.']', true);
+	if (json_last_error() !== JSON_ERROR_NONE) 
+	{
+	}
+	else
+	{
+		$fCount = 0.0;
+    	foreach ($ar as $item) 
+		{
+        	if (is_array($item)) 
+			{
+				$iTotal = count($item);
+				if ($iTotal == 0)
+				{
+					$fX = $fCount;
+					$fY = 0.0;
+				}
+				else if ($iTotal == 0)
+				{
+					$fX = $fCount;
+					$fY = $item[0];
+				}
+				else
+				{
+					$fX = $item[0];
+					$fY = $item[1];
+					$fCount = $fX;				
+				}
+			}
+			else
+			{
+				$fX = $fCount;
+				$fY = $item;
+			}
+			$arX[] = $fX;
+			$arY[] = empty($strFunction) ? $fY : call_user_func($strFunction, $fY);
+			$fCount ++;
+        }
+    }		
 	
-    $str = 'x = {'.implode($strSeparator, $arX).'}';
-    $str .= $strNewLine.'y = {'.(empty($strFunction) ? implode($strSeparator, $arY) : strval_round_implode($arY, $strSeparator)).'}';
+    $str = 'x = ['.implode($strSeparator, $arX).']';
+	$str .= $strNewLine.'y = ['.(empty($strFunction) ? implode($strSeparator, $arY) : strval_round_implode($arY, $strSeparator)).']';
 	return $str;
 }
 
@@ -270,8 +331,8 @@ function _getLinearRegressionString($strInput, $bChinese)
 
    	$strNewLine = GetHtmlNewLine();
    	$strSeparator = ', ';
-	if ($strFunction == 'stock')		$strData = _getLinearRegressionStockArrays($arX, $arY, $strInput, $strSeparator, $strNewLine);
-	else								$strData = _getLinearRegressionArrays($arX, $arY, $strInput, $strSeparator, $strNewLine, $strFunction);
+	if ($strFunction == 'stock')	$strData = _getLinearRegressionStockArrays($arX, $arY, $strInput, $strSeparator, $strNewLine);
+	else							$strData = _getLinearRegressionArrays($arX, $arY, $strInput, $strSeparator, $strNewLine, $strFunction);
 
     $jpg = new LinearImageFile();
     if ($jpg->Draw($arX, $arY))
@@ -279,40 +340,101 @@ function _getLinearRegressionString($strInput, $bChinese)
     	$str = GetBoldElement($jpg->GetEquation());
     	$str .= $strNewLine.$jpg->GetLink();
     }
-	else	$str = GetFontElement($bChinese ? '数据不足' : 'Not enough data');
-   	return $str.$strNewLine.$strData;
-}
-
-function _getLinearEquationString($strA, $strB, $strC)
-{
-	return $strA.' * x + '.$strB.' * y = '.$strC;
-}
-
-function _getCramersLawString($strInput, $bChinese)
-{
-   	$strNewLine = GetHtmlNewLine();
-	$ar = explode(';', $strInput);
-	if (count($ar) == 2)
+	else	
 	{
-		list($strA1, $strB1, $strC1) = explode(',', trim($ar[0]));
-		list($strA2, $strB2, $strC2) = explode(',', trim($ar[1]));
-		$str = _getLinearEquationString($strA1, $strB1, $strC1);
-		$str .= $strNewLine._getLinearEquationString($strA2, $strB2, $strC2).$strNewLine;
-		
-		if ($arXY = CramersRule(floatval($strA1), floatval($strB1), floatval($strC1), floatval($strA2), floatval($strB2), floatval($strC2)))
-		{
-			list($fX, $fY) = $arXY;
-			$str .= $strNewLine.'<b>x = '.number_format($fX, 3);
-			$str .= '; y = '.number_format($fY, 3).'</b>';
-		}
-		else
-		{
-			$str .= $bChinese ? '无解' : 'No solution';
-		}
+		$str = GetFontElement($bChinese ? '数据不足' : 'Not enough data');
+	}	
+   	$str .= $strNewLine.$strData;
+	$str .= $strNewLine;
+	$str .= $bChinese ? '求解超定线性方程组验证：' : 'Verify by Solve Overdetermined: ';
+	$arEq = array();
+	for ($i = 0; $i < count($arX); $i ++)
+	{
+		$arEq[] = array(1.0, $arX[$i], $arY[$i]);
+	}	
+	try
+	{
+		$str .= print_r(SolveOverdetermined($arEq), true);
 	}
-	else
+	catch (Exception $e) 
 	{
-		$str = '';
+		DebugString($e->getFile().' '.$e->getLine().' '.$e->getMessage());	// $e->getTraceAsString()
+	}
+	return $str;
+}
+
+function ___get_xyz()
+{
+	return array('x', 'y', 'z', 'w');
+}
+
+function __getLinearEquationString($ar)
+{
+	$strAdd = ' + ';
+	$arVar = ___get_xyz();
+	$iTotal = count($ar);
+	$str = '';
+	for ($i = 0; $i < $iTotal - 1; $i ++)
+	{
+		$strVal = $ar[$i];
+		if (str_ends_with($str, $strAdd) && str_starts_with($strVal, '-'))
+		{
+			$str = substr($str, 0, strlen($str) - strlen($strAdd));
+			$str .= ' - ';
+			$strVal = substr($strVal, 1, strlen($strVal) - 1);
+		}
+		if ($strVal != '1')
+		{
+			$str .= $strVal;	// .' * ';
+		}
+		$str .= $arVar[$i].$strAdd;
+	}
+	$str = rtrim($str, $strAdd);
+	$str .= ' = '.$ar[$i].GetHtmlNewLine();
+	return $str;
+}
+
+function __getExceptionMessage($e, $bChinese)
+{
+	return $bChinese ? $e->getMessage() : 'No solution';
+}
+function _getCramersRuleString($strInput, $bChinese)
+{
+	$ar = json_decode('['.$strInput.']', true);
+	if (json_last_error() !== JSON_ERROR_NONE) 
+	{
+    	return $bChinese ? '解析方程组系数失败' : json_last_error_msg();
+	}
+	$str = '';
+	foreach ($ar as $arEq)	$str .= __getLinearEquationString($arEq);
+	
+	try
+	{
+		$arXY = CramersRule($ar);
+		$strSemicolon = '; ';
+		$arVar = ___get_xyz();
+		$iTotal = count($arXY);
+		$strResult = '';
+		for ($i = 0; $i < $iTotal; $i ++)
+		{
+			$strResult .= $arVar[$i].' = '.number_format($arXY[$i], 2).$strSemicolon;
+		}
+		$str .= GetBoldElement(rtrim($strResult, $strSemicolon));
+	}
+	catch (Exception $e) 
+	{
+		$str .= __getExceptionMessage($e, $bChinese);
+	}
+
+	$str .= GetHtmlNewLine();
+	$str .= $bChinese ? '高斯消元法验证：' : 'Verify by Gaussian Elimination: ';
+	try
+	{
+		$str .= print_r(GaussianElimination($ar), true);
+	}
+	catch (Exception $e) 
+	{
+		$str .= __getExceptionMessage($e, $bChinese);
 	}
 	return $str;
 }
@@ -348,7 +470,7 @@ function _getSinaJsChineseStockArray($bChinese)
 
 function _getSinaJsFundArray($bChinese)
 {
-	if ($bChinese)	return	 array('GB2312编码的名字', '目前净值', '累计净值', '昨日净值', '日期', '？');
+	if ($bChinese)	return	 array('GB2312编码的名字', '目前'.STOCK_DISP_NETVALUE, '累计'.STOCK_DISP_NETVALUE, '昨日'.STOCK_DISP_NETVALUE, '日期', '？');
 	return	 array('GB2312 coded name', 'Current net value', 'Accumulated net value', 'Previous net value', 'Date', '?');
 }
 
@@ -446,7 +568,7 @@ function _getSinaJsString($strInput, $bChinese)
 
 function _getTaobaoDouble11Data()
 {
-	return '0.5; 9.36; 52; 191; 352; 571; 912; 1207; 1682.69; 2135; 2684';
+	return '0.5, 9.36, 52, 191, 352, 571, 912, 1207, 1682.69, 2135, 2684';
 }
 
 function _getTaobaoDouble11SqrtData()
@@ -456,7 +578,7 @@ function _getTaobaoDouble11SqrtData()
 
 function _getTaobaoSalesData()
 {
-	return '66.7; 119; 200; 345; 525; 762; 1011; 1583; 2503; 3768';
+	return '66.7, 119, 200, 345, 525, 762, 1011, 1583, 2503, 3768';
 }
 
 function _getTaobaoSalesLogData()
@@ -481,9 +603,10 @@ END;
 
 function _echoLinearRegressionRelated()
 {
+	$strAcountNumber = GetQuoteElement('[1.02, 5069], [0.51, 3081], [2.92, 6936], [3.47, 7846], [2.07, 5583]');
 	$strTaobaoSqrt = GetQuoteElement(_getTaobaoDouble11SqrtData());
 	$strTaobaoLog = GetQuoteElement(_getTaobaoSalesLogData());
-	$strBenford = GetQuoteElement('1,'.GetStandardBenfordData());
+	$strBenford = GetQuoteElement(GetStandardBenfordData());
 	$strStockHistory = GetQuoteElement('stock(600028,00386,1)');
 
 	$strSZ162411 = GetGroupStockLink('SZ162411', true);	
@@ -493,7 +616,7 @@ function _echoLinearRegressionRelated()
 	echo <<< END
 	<p>测试数据:</p>
 	<ol>
-	    <li>{$strSZ162411}2019年8月16日到22日场内溢价百分比x和场内申购账户数y: <font color=gray>1.02,5069; 0.51,3081; 2.92,6936; 3.47,7846; 2.07,5583</font></li>
+	    <li>{$strSZ162411}2019年8月16日到22日场内溢价百分比x和场内申购账户数y: {$strAcountNumber}</li>
 	    <li>淘宝天猫从x=0(2009年)开始双11交易额y(亿元): $strTaobaoSqrt</li>
 	    <li>阿里{$strBaba}历年x=0(2010年)财报中的总销售额y(亿元): $strTaobaoLog</li>
 	    <li>本福特标准分布: $strBenford</li>
@@ -533,7 +656,7 @@ function _echoInputResult($acct, $strPage, $strInput, $bChinese)
     	break;
     		
    	case 'cramersrule':
-    	$str = _getCramersLawString($strInput, $bChinese);
+    	$str = _getCramersRuleString($strInput, $bChinese);
     	break;
     	
     case 'dicecaptcha':
@@ -584,7 +707,7 @@ function _getDefaultInput($strPage)
     	break;
     		
     case 'cramersrule':
-    	$str = '0.2506,2.487,1099; 2.450,2.557,7408';
+    	$str = '[0.2506, 2.487, 1099], [2.450, 2.557, 7408]';
     	break;
     		
     case 'dicecaptcha':
@@ -596,7 +719,6 @@ function _getDefaultInput($strPage)
     	break;
     		
     case 'linearregression':
-//  	$strInput = '1.02,5069; 0.51,3081; 2.92,6936; 3.47,7846; 2.07,5583';
     	$str = _getTaobaoDouble11SqrtData();
     	break;
     		
@@ -709,5 +831,5 @@ function GetTitle($bChinese = true)
 	return _getAccountToolTitle($strPage, $acct->GetQuery(), $bChinese);
 }
 
-	$acct = new IpLookupAccount(false, array('commonphrase', 'ip', 'sinajs'));
+	$acct = new IpLookupAccount(false, ['commonphrase', 'ip', 'sinajs']);
 ?>

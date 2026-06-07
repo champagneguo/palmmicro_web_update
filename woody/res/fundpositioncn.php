@@ -5,111 +5,60 @@ require_once('../../php/dateimagefile.php');
 require_once('../../php/ui/editinputform.php');
 require_once('../../php/ui/netvaluehistoryparagraph.php');
 
-function _getSwitchDateArray($net_sql, $strStockId, $est_sql, $strEstId)
-{
-	$arDate = array();
-	$bFirst = true;
-    if ($result = $net_sql->GetAll($strStockId)) 
-    {
-        while ($record = mysqli_fetch_assoc($result)) 
-        {
-       		$strDate = $record['date'];
-       		if ($strEst = $est_sql->GetClose($strEstId, $strDate))
-       		{
-       			$fCur = floatval($strEst);
-       			if ($bFirst)
-       			{
-       				$arDate[] = $strDate;
-       				$bSecond = true;
-       				$bFirst = false;
-       			}
-       			else
-       			{
-       				if ($bSecond)
-       				{
-       					$bUp = ($fOld > $fCur) ? true : false;
-       					$bSecond = false;
-       				}
-       				else
-       				{
-       					if ($bUp)
-       					{
-       						if ($fOld < $fCur)
-       						{
-       							$bUp = false;
-       							$arDate[] = $strOldDate;
-       						}
-       					}
-       					else
-       					{
-       						if ($fOld > $fCur)
-       						{
-       							$bUp = true;
-       							$arDate[] = $strOldDate;
-       						}
-       					}
-       				}
-       			}
-   				$fOld = $fCur;
-   				$strOldDate = $strDate;
-       		}
-        }
-        mysqli_free_result($result);
-    }
-    return $arDate;
-}
-	
-function _echoFundPositionData($csv, $ref, $cny_ref, $est_ref, $strInput, $bAdmin)
+function _echoFundPositionData($csv, $ref, $cny_ref, $est_ref, $fInput, $iNum, $bAdmin)
 {
    	$strStockId = $ref->GetStockId();
-	$strEstId = $est_ref->GetStockId();
 	$net_sql = GetNetValueHistorySql();
-	$est_sql = ($est_ref->CountNetValue() > 0) ? $net_sql : GetStockHistorySql(); 
-
-	$arDate = _getSwitchDateArray($net_sql, $strStockId, $est_sql, $strEstId);
-	if (count($arDate) == 0)		return;
+	$arDate = $net_sql->GetSwitchDates($strStockId);
  
  	$iIndex = 0;
+	$iTotal = 0;
     if ($result = $net_sql->GetAll($strStockId)) 
     {
         while ($record = mysqli_fetch_assoc($result)) 
         {
+			$bWritten = false;
        		$strDate = $record['date'];
        		$strNetValue = $record['close'];
        		if ($strDate == $arDate[$iIndex])
        		{
    				$iIndex ++;
-   				if (isset($arDate[$iIndex]))	EchoNetValueItem($csv, $ref, $cny_ref, $est_ref, $strDate, $strNetValue, $arDate[$iIndex], $strInput, $bAdmin);
+   				if (isset($arDate[$iIndex]))
+				{
+					$bWritten = EchoNetValueItem($csv, $ref, $cny_ref, $est_ref, $strDate, $strNetValue, $arDate[$iIndex], $fInput, $bAdmin);
+					$iTotal ++;
+					if ($iTotal == $iNum)	break;
+				}
    				else
    				{
-   					$csv->Write($strDate, $strNetValue);
    					break;
        			}
        		}
-       		else	$csv->Write($strDate, $strNetValue);
+			if ($bWritten === false)	$csv->Write($strDate, $strNetValue);
         }
         mysqli_free_result($result);
     }
 }
 
-function _echoFundPositionParagraph($ref, $cny_ref, $est_ref, $strSymbol, $strInput, $bAdmin)
+function _echoFundPositionParagraph($strPage, $strLinks, $ref, $cny_ref, $est_ref, $strSymbol, $fInput, $iNum, $bAdmin)
 {
-	EchoTableParagraphBegin(GetNetValueTableColumn($est_ref, $cny_ref), 'fundposition', GetFundLinks($strSymbol));
-	
-	$csv = new PageCsvFile();
-	_echoFundPositionData($csv, $ref, $cny_ref, $est_ref, $strInput, $bAdmin);
-	$csv->Close();
-	
- 	$str = '';
-	if ($csv->HasFile())
+	if (EchoTableParagraphBegin(GetNetValueTableColumn($est_ref, $cny_ref), $strPage, $strLinks))
 	{
-		$jpg = new DateImageFile();
-		$strNewLine = GetHtmlNewLine();
+		$csv = new PageCsvFile();
+		_echoFundPositionData($csv, $ref, $cny_ref, $est_ref, $fInput, $iNum, $bAdmin);
+		$csv->Close();
+	
+ 		$str = '';
+		if ($csv->HasFile())
+		{
+			$jpg = new DateImageFile();
+			$strNewLine = GetHtmlNewLine();
 		
-		$str = $strNewLine.$csv->GetLink();
-		if ($jpg->Draw($csv->ReadColumn(2), $csv->ReadColumn(1)))	$str .= $strNewLine.$jpg->GetAll(TableColumnGetPosition(), $strSymbol);
-   	}
-	EchoTableParagraphEnd($str);
+			$str = $strNewLine.$csv->GetLink();
+			if ($jpg->Draw($csv->ReadColumn(2), $csv->ReadColumn(1)))	$str .= $strNewLine.$jpg->GetAll(TableColumnGetPosition(), $strSymbol);
+   		}
+		EchoTableParagraphEnd($str);
+	}
 }
 
 function EchoAll()
@@ -118,8 +67,8 @@ function EchoAll()
 	
     if ($ref = $acct->EchoStockGroup())
     {
-    	if (($strInput = GetEditInput()) === false)		$strInput = POSITION_EST_LEVEL;
-    	EchoEditInputForm('进行估算的涨跌阈值', $strInput);
+    	if (($strInput = GetEditInput()) === false)		$strInput = strval(POS_NETVALUE_DIFF);
+    	EchoEditInputForm('进行'.TableColumnGetPosition().'估算的'.TableColumnGetNetValue().'涨跌%阈值', $strInput);
     	if ($strInput != '')
     	{
     		$fund = false;
@@ -129,8 +78,19 @@ function EchoAll()
     			$cny_ref = $fund->GetCnyRef();
     			$est_ref = $fund->GetEstRef();
     		}
-    		if ($fund)		_echoFundPositionParagraph($fund, $cny_ref, $est_ref, $strSymbol, $strInput, $acct->IsAdmin());
-    	}
+			else if (in_arrayLofMix($strSymbol))
+			{
+				$fund = new HoldingsReference($strSymbol);
+				$cny_ref = $fund->GetCnyRef();
+				$est_ref = false;				
+			}
+    		if ($fund)
+			{
+				$strLinks = GetFundLinks($strSymbol);
+				if ($acct->GetLoginId())	$strLinks .= ' '.StockGetAllLink($strSymbol);
+				_echoFundPositionParagraph($acct->GetPage(), $strLinks, $fund, $cny_ref, $est_ref, $strSymbol, floatval($strInput), $acct->GetNum(), $acct->IsAdmin());
+    		}
+		}
     }
     $acct->EchoLinks();
 }
@@ -140,7 +100,7 @@ function GetMetaDescription()
 	global $acct;
 	
   	$str = $acct->GetStockDisplay().FUND_POSITION_DISPLAY;
-    $str .= '。仅用于美股QDII基金，寻找对应美股ETF净值连续几天累计涨跌超过4%的机会测算A股基金的实际持仓仓位。';
+    $str .= '。仅用于美股QDII和部分混合QDII基金，寻找A股基金净值连续几天累计涨跌超过某个阈值例如4%的机会，测算基金的实际表现出来的持仓仓位。';
     return CheckMetaDescription($str);
 }
 

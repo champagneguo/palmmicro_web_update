@@ -1,4 +1,5 @@
 <?php
+require_once('ui/stockdisp.php');
 
 class BlogPageYMD extends StringYMD
 {
@@ -106,11 +107,11 @@ function GetBlogTitle($iDate, $bChinese = true, $bLink = true)
 		break;
 		
 	case 20161014:
-		$strTitle = $bChinese ? 'Palmmicro'.$strDisplay.'sz162411' : 'Palmmicro '.$strDisplay.' sz162411';
+		$strTitle = $bChinese ? 'Palmmicro'.$strDisplay : 'Palmmicro '.$strDisplay;
 		break;
 		
 	case 20150818:
-		$strTitle = $bChinese ? $strDisplay.'净值估算的PHP程序' : 'PHP Application to Estimate '.$strDisplay.' Net Value';
+		$strTitle = $bChinese ? $strDisplay.STOCK_DISP_NETVALUE.'估算的PHP程序' : 'PHP Application to Estimate '.$strDisplay.' Net Value';
 		break;
 		
 	case 20141204:

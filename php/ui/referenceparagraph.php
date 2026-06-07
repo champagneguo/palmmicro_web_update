@@ -55,7 +55,7 @@ function _echoReferenceTableData($arRef, $bAdmin)
 
 function GetTimeDisplay()
 {
-    date_default_timezone_set('PRC');
+    date_default_timezone_set('Asia/Shanghai');
 	$ymd = GetNowYMD();
 	$strTick = strval($ymd->GetTick() * 1000);
 	
@@ -93,9 +93,12 @@ function EchoReferenceParagraph($arRef, $bAdmin = false)
 	array_pop($ar);
 	$ar[] = new TableColumnName(false, 270);
 	if ($bAdmin)	$ar[] = new TableColumn('调试数据', TableColumnGetLastWidth($ar));
-	EchoTableParagraphBegin($ar, 'reference', $str);
-	_echoReferenceTableData($arRef, $bAdmin);
-    EchoTableParagraphEnd();
+	
+	if (EchoTableParagraphBegin($ar, 'reference', $str))
+	{
+		_echoReferenceTableData($arRef, $bAdmin);
+    	EchoTableParagraphEnd();
+	}	
 }
 
 ?>

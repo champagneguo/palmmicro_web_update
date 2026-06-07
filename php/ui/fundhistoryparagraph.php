@@ -16,10 +16,11 @@ function _echoFundHistoryTableItem($csv, $strNetValue, $arHistory, $arFundEst, $
     {
     	if ($strEstValue = $arFundEst['close'])
     	{
-    		$ar[] = $ref->GetPriceDisplay(floatval($strEstValue), floatval($strNetValue));
+			$fEstValue = floatval($strEstValue);
+    		$ar[] = $ref->GetPriceDisplay($fEstValue, $fNetValue);
     		$strTime = GetHM($arFundEst['time']); 
-    		$ar[] = $bAdmin ? GetOnClickLink('/php/_submitdelete.php?'.'fundest'.'='.$arFundEst['id'], '确认删除估值记录'.$strEstValue.'？', $strTime) : $strTime;
-    		$ar[] = $ref->GetPercentageDisplay(floatval($strNetValue), floatval($strEstValue));
+    		$ar[] = $bAdmin ? GetOnClickLink('/php/_submitdelete.php?'.'fundest'.'='.$arFundEst['id'], '确认删除'.STOCK_DISP_EST.'记录'.$strEstValue.'？', $strTime) : $strTime;
+    		$ar[] = $ref->GetPercentageDisplay($fNetValue, $fEstValue);
     		if ($est_ref)	$ar[] = $est_ref->GetNetValueDisplay($est_ref->GetNetValue($arFundEst['date']));
     	}
     }
@@ -65,22 +66,30 @@ function _echoFundHistoryParagraph($ref, $est_ref, $csv, $iStart, $iNum, $bAdmin
         $str .= ' '.GetFundHistoryLink($strSymbol);
         $strMenuLink = '';
     }
-    else	$strMenuLink = StockGetMenuLink($strSymbol, $his_sql->Count($strStockId), $iStart, $iNum);
+    else
+	{
+		$strMenuLink = StockGetMenuLink($strSymbol, $his_sql->Count($strStockId), $iStart, $iNum);
+	}
 
 	$ar = array(new TableColumnDate(), $close_col, $netvalue_col, $premium_col);
 	$fund_est_sql = GetFundEstSql();
 	if ($fund_est_sql->Count($strStockId) > 0)
 	{
-		$ar[] = new TableColumnOfficalEst();
+		$ar[] = new TableColumnOfficialEst();
 		$ar[] = new TableColumnTime();
 		$ar[] = new TableColumnError();
 		if ($est_ref)		$ar[] = RefGetTableColumnNetValue($est_ref);
 	}
-	else	$fund_est_sql = false;
+	else
+	{
+		$fund_est_sql = false;
+	}
 	
-	EchoTableParagraphBegin($ar, $strSymbol.'fundhistory', $str.' '.$strMenuLink);
-	_echoHistoryTableData($his_sql, $fund_est_sql, $csv, $ref, $strStockId, $est_ref, $iStart, $iNum, $bAdmin);
-    EchoTableParagraphEnd($strMenuLink);
+	if (EchoTableParagraphBegin($ar, $strSymbol.'fundhistory', $str.' '.$strMenuLink))
+	{
+		_echoHistoryTableData($his_sql, $fund_est_sql, $csv, $ref, $strStockId, $est_ref, $iStart, $iNum, $bAdmin);
+    	EchoTableParagraphEnd($strMenuLink);
+	}
 }
 
 function EchoFundHistoryParagraph($ref, $csv = false, $iStart = 0, $iNum = TABLE_COMMON_DISPLAY, $bAdmin = false)

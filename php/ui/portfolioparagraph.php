@@ -6,7 +6,7 @@ function _getPortfolioTestVal($iShares, $strSymbol)
 	switch ($strSymbol)
     {
     case 'KWEB':
-		$iQuantity = 0;
+		$iQuantity = 200;
 		break;
 		
     case 'SH600104':
@@ -14,7 +14,7 @@ function _getPortfolioTestVal($iShares, $strSymbol)
 		break;
 
     case 'TLT':
-		$iQuantity = 600;
+		$iQuantity = 500;
 		break;
 /*
     case 'XOP':
@@ -140,20 +140,21 @@ function _echoPortfolioTableItem($trans)
 function EchoPortfolioParagraph($arTrans)
 {
 	$profit_col = new TableColumnProfit();
-	EchoTableParagraphBegin(array(new TableColumnSymbol(),
-								   $profit_col,
-								   new TableColumnHolding(),
-								   new TableColumnQuantity(),
-								   new TableColumnPrice('平均'),
-								   new TableColumnChange(),
-								   new TableColumnTest()
-								   ), 'myportfolio', '个股'.$profit_col->GetDisplay());
-
-	foreach ($arTrans as $trans)
+	if (EchoTableParagraphBegin(array(new TableColumnSymbol(),
+									  $profit_col,
+									  new TableColumnHolding(),
+									  new TableColumnQuantity(),
+									  new TableColumnPrice('平均'),
+									  new TableColumnChange(),
+									  new TableColumnTest()
+									 ), 'myportfolio', '个股'.$profit_col->GetDisplay()))
 	{
-		if ($trans->GetTotalRecords() > 0)	_echoPortfolioTableItem($trans);
-	}
-    EchoTableParagraphEnd();
+		foreach ($arTrans as $trans)
+		{
+			if ($trans->GetTotalRecords() > 0)	_echoPortfolioTableItem($trans);
+		}
+    	EchoTableParagraphEnd();
+	}								 
 }
 
 ?>

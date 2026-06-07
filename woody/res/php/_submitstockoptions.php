@@ -33,7 +33,7 @@ function _updateStockHistoryAdjCloseByDividend($ref, $strSymbol, $strStockId, $h
     {
         while ($record = mysqli_fetch_assoc($result)) 
         {
-            $ar[$record['id']] = floatval($record['adjclose']);
+			if ($record['date'] != $strYMD)		$ar[$record['id']] = floatval($record['adjclose']);
         }
         mysqli_free_result($result);
     }
@@ -129,14 +129,14 @@ function _updateStockOptionHa($strSymbolH, $strSymbolA)
 {
 	$pair_sql = GetAhPairSql();
 	if (empty($strSymbolA))		$pair_sql->DeleteByPairSymbol($strSymbolH);
-	else							$pair_sql->WritePairSymbol($strSymbolA, $strSymbolH);
+	else						$pair_sql->WritePairSymbol($strSymbolA, $strSymbolH);
 }
 
 function _updateStockOptionAh($strSymbolA, $strSymbolH)
 {
 	$pair_sql = GetAhPairSql();
 	if (empty($strSymbolH))		$pair_sql->DeleteBySymbol($strSymbolA);
-	else							$pair_sql->WritePairSymbol($strSymbolA, $strSymbolH);
+	else						$pair_sql->WritePairSymbol($strSymbolA, $strSymbolH);
 }
 
 function _updateStockOptionEmaDays($strStockId, $iDays, $strDate, $strVal)
@@ -208,7 +208,13 @@ function _updateStockOptionFund($strSymbol, $strStockId, $strVal)
 function _updateOptionDailySql($sql, $strStockId, $strDate, $strVal)
 {
 	DebugString(__FUNCTION__.' '.$strVal.' '.$strDate, true);
-	return $sql->ModifyDaily($strStockId, $strDate, $strVal);
+   	if (empty($strVal))
+    {
+		$iCount = $sql->DeleteByDate($strStockId, $strDate);
+		DebugVal($iCount, __FUNCTION__.' deleted', true);
+    	return false;
+    }
+	return $sql->WriteDaily($strStockId, $strDate, $strVal);
 }
 
 function _updateStockOptionSplitGroupTransactions($strGroupId, $strStockId, $strDate, $fRatio, $fPrice)
@@ -311,28 +317,6 @@ function _updateStockOptionDividend($ref, $strSymbol, $strStockId, $his_sql, $st
   		}
   		else
   		{
-/*  			switch ($strSymbol)
-  			{
-  			case 'KWEB':
-  				$arQdii = array('SZ164906');
-  				break;
-  				
-  			case 'XBI':
-  				$arQdii = QdiiGetXbiSymbolArray();
-  				break;
-  				
-  			case 'XLY':
-  				$arQdii = array('SZ162415');
-  				break;
-  				
-  			case 'XOP':
-  				$arQdii = QdiiGetXopSymbolArray();
-  				break;
-  				
-  			default:
-  				$arQdii = array();
-  				break;
-  			}*/
   			$arQdii = QdiiGetArray($strSymbol);
 			foreach ($arQdii as $strQdii)
 			{
@@ -368,12 +352,12 @@ function _updateStockOptionCalibration($strSymbol, $strStockId, $strDate, $strVa
 		{
 			$ref = new FundPairReference($strSymbol);
 			YahooGetNetValue($ref);
-			$strVal = strval($ref->CalcFactor($strVal, SqlGetNetValueByDate($strStockId, $strDate), $strDate));
+			$strVal = strval($ref->CalcFactor(floatval($strVal), $ref->GetNetValue($strDate), $strDate));
 		}
 		else if ($strSymbol == 'hf_CHA50CFD')
 		{
 			$ref = new FundPairReference($strSymbol);
-			$strVal = strval($ref->CalcFactor($strVal, $ref->GetPrice(), $strDate));
+			$strVal = strval($ref->CalcFactor(floatval($strVal), $ref->GetVal(), $strDate));
 		}
 		else
 		{
@@ -384,8 +368,9 @@ function _updateStockOptionCalibration($strSymbol, $strStockId, $strDate, $strVa
 			}
 			else if (in_arrayChinaIndex($strSymbol))	
 			{
-				DebugString(__FUNCTION__.' unhandled China index symbol: '.$strSymbol);
-				return;
+				//DebugString(__FUNCTION__.' unhandled China index symbol: '.$strSymbol);
+				//return;
+				$strCNY = '1.0';
 			}
 			else if (in_arrayQdii($strSymbol))		$strCNY = SqlGetNetValueByDate(SqlGetStockId('USCNY'), $strDate);
 			else if (in_arrayQdiiHk($strSymbol))	$strCNY = SqlGetNetValueByDate(SqlGetStockId('HKCNY'), $strDate);
@@ -405,6 +390,22 @@ function _updateStockOptionCalibration($strSymbol, $strStockId, $strDate, $strVa
 	_updateOptionDailySql(GetCalibrationSql(), $strStockId, $strDate, $strVal);
 }
 
+/*
+function _updateQuarterReportHoldings($strStockId, $strDate, $strVal)
+{
+	$date_sql = new HoldingsDateSql();
+	if ($strHoldingDate = $date_sql->ReadDate($strStockId))
+	{
+		if (strtotime($strDate) < strtotime($strHoldingDate))
+		{
+			$quarter_sql = new QuarterReportSql();
+			$quarter_sql->WriteDaily($strStockId, $strDate, $strVal);
+			return true;		
+		}
+	}
+	return false;
+}
+*/
 class _SubmitOptionsAccount extends Account
 {
     public function Process($strLoginId)
@@ -415,7 +416,11 @@ class _SubmitOptionsAccount extends Account
 		$strEmail = SqlCleanString($_POST['login']);
 		$strSymbol = SqlCleanString($_POST['symbol']);
 		$strDate = isset($_POST['date']) ? SqlCleanString($_POST['date']) : '';
-		$strVal = SqlCleanString($_POST['val']);
+
+		$strVal = $_POST['val'];
+		if ($bAdmin === false)		$strVal = SqlCleanString($strVal);
+//		$strVal = str_replace('\\', '', $strVal);
+		DebugString(__CLASS__.'->'.__FUNCTION__.' '.$strVal);
 		
     	StockPrefetchExtendedData($strSymbol);
         $ref = StockGetReference($strSymbol);
@@ -463,41 +468,21 @@ class _SubmitOptionsAccount extends Account
 		case STOCK_OPTION_CALIBRATION:
 			if ($bAdmin)	_updateStockOptionCalibration($strSymbol, $strStockId, $strDate, $strVal);
 			break;
-			
+
 		case STOCK_OPTION_HOLDINGS:
 			if ($bAdmin)
 			{
-				switch ($strSymbol)
+	    		if ($ref->IsShangHaiEtf())			ReadSseHoldingsFile($strSymbol, $strStockId);
+    			else if ($ref->IsShenZhenEtf())		ReadSzseHoldingsFile($strSymbol, $strStockId, $strDate);
+				else
 				{
-				case 'SH513050':
-				case 'SH513090':
-				case 'SH513220':
-				case 'SH513230':
-				case 'SH513360':
-				case 'SH513750':
-				case 'SH513850':
-				case 'SH513990':
-					ReadSseHoldingsFile($strSymbol, $strStockId);
-					break;
-					
-				case 'SZ159509':
-				case 'SZ159529':
-				case 'SZ159567':
-				case 'SZ159570':
-				case 'SZ159577':
-				case 'SZ159605':
-				case 'SZ159607':
-				case 'SZ159615':
-				case 'SZ159751':
-				case 'SZ159792':
-					ReadSzseHoldingsFile($strSymbol, $strStockId, $strDate);
-					break;
-					
-				default:
-					_updateStockOptionHoldings($strSymbol, $strStockId, $strDate, $strVal);
-					break;
+					UpdateStockOptionHoldings($strStockId, $strDate, $strVal);
 				}
 			}
+			break;
+
+		case STOCK_OPTION_REPORT:
+			if ($bAdmin)	_updateOptionDailySql(new QuarterReportSql(), $strStockId, $strDate, $strVal);
 			break;
 			
 		case STOCK_OPTION_NETVALUE:
@@ -528,4 +513,5 @@ class _SubmitOptionsAccount extends Account
 		unset($_POST['submit']);
 	}
 }
+
 ?>

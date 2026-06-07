@@ -16,8 +16,8 @@ function _echoStockHistoryItem($record, $ref, $compare_ref, $forex_ref, $csv, $h
 	
 	if ($compare_ref)
 	{
-//		if ($strCompare = $his_sql->GetAdjClose($strCompareId, $strDate))
-		if ($strCompare = $his_sql->GetClosePrev($strCompareId, $strDate))
+		if ($strCompare = $his_sql->GetAdjClose($strCompareId, $strDate))
+		//if ($strCompare = $his_sql->GetClosePrev($strCompareId, $strDate))
 		{
 			$fCompare = floatval($strCompare);
 			$ar[] = $compare_ref->GetPriceDisplay($fCompare);
@@ -62,17 +62,20 @@ function EchoStockHistoryParagraph($ref, $compare_ref = false, $forex_ref = fals
 	$his_sql = GetStockHistorySql();
     $strMenuLink = IsTableCommonDisplay($iStart, $iNum) ? '' : StockGetMenuLink($strSymbol, $his_sql->Count($strStockId), $iStart, $iNum);
     
-    $ar = array(new TableColumnDate(), new TableColumnPrice(), new TableColumnQuantity(false, 120), new TableColumnPrice('复权'));
+    $ar = array(new TableColumnDate(), new TableColumnPrice(), new TableColumnQuantity(false, 120));
+	$ar[] = $ref->IsSinaFuture() ? new TableColumnSettlePrice() : new TableColumnPrice('复权');
     if ($compare_ref)
     {
     	$ar[] = new TableColumnStock($compare_ref);
     	if ($forex_ref)	$ar[] = new TableColumnStock($forex_ref);
     	$ar[] = new TableColumnRatio();
     }
-	EchoTableParagraphBegin($ar, $strSymbol.'stockhistory', $str.'<br />'.$strMenuLink);
-   
-    _echoStockHistoryData($ref, $compare_ref, $forex_ref, $csv, $his_sql, $strStockId, $iStart, $iNum, $bAdmin);
-    EchoTableParagraphEnd($strMenuLink);
+
+	if (EchoTableParagraphBegin($ar, $strSymbol.'stockhistory', $str.GetHtmlNewLine().$strMenuLink))
+	{
+		_echoStockHistoryData($ref, $compare_ref, $forex_ref, $csv, $his_sql, $strStockId, $iStart, $iNum, $bAdmin);
+    	EchoTableParagraphEnd($strMenuLink);
+	}
 }
 
 ?>

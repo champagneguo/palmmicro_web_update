@@ -3,12 +3,21 @@ require_once('_fundgroup.php');
 
 //https://81.futsseapi.eastmoney.com/sse/113_ag2602_qt
 
+function _RealtimeCallback()
+{
+    global $acct;
+    
+    $realtime_ref = $acct->GetRealtimeRef();
+    $cnh_ref = $acct->GetCnhRef();
+    return 1000.0 * $realtime_ref->GetVal() * $cnh_ref->GetVal() / 31.1035;
+}
+
 class _ChinaFutureAccount extends FundGroupAccount
 {
     var $realtime_ref = false;
     var $cnh_ref = false;
 
-    function Create() 
+    public function Create() 
     {
         $strSymbol = $this->GetName();
 		$ar = array($strSymbol);
@@ -38,26 +47,16 @@ class _ChinaFutureAccount extends FundGroupAccount
         $this->CreateGroup(array($this->ref->GetPairRef(), $this->ref));
     }
 
-    function GetRealtimeRef()
+    public function GetRealtimeRef()
     {
     	return $this->realtime_ref;
     }
 
-    function GetCnhRef()
+    public function GetCnhRef()
     {
     	return $this->cnh_ref;
     }
 }
-
-function _RealtimeCallback()
-{
-    global $acct;
-    
-    $realtime_ref = $acct->GetRealtimeRef();
-    $cnh_ref = $acct->GetCnhRef();
-    return 1000.0 * $realtime_ref->GetVal() * $cnh_ref->GetVal() / 31.1035;
-}
-
 
 function EchoAll()
 {
@@ -66,7 +65,7 @@ function EchoAll()
     $ref = $acct->GetRef();
     
 	EchoFundEstParagraph($ref);
-    EchoReferenceParagraph(array_merge($acct->GetStockRefArray(), array($acct->realtime_ref, $acct->cnh_ref)), $acct->IsAdmin());
+    EchoReferenceParagraph(array_merge($acct->GetStockRefArray(), array($acct->GetRealtimeRef(), $acct->GetCnhRef())), $acct->IsAdmin());
     EchoFundListParagraph(array($ref));
     EchoFundPairTradingParagraph($ref);
     EchoFundPairSmaParagraph($ref);
@@ -95,7 +94,7 @@ function GetMetaDescription()
     
     $strDescription = RefGetStockDisplay($ref);
     $strEst = RefGetStockDisplay($ref->GetPairRef());
-    $str = "用{$strEst}估算{$strDescription}净值，同时测算无风险套利的国内期货市场对冲比例等数据。";
+    $str = "用{$strEst}估算{$strDescription}".STOCK_DISP_NETVALUE.'，同时测算无风险套利的国内期货市场对冲比例等数据。';
     return CheckMetaDescription($str);
 }
 

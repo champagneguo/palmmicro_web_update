@@ -59,6 +59,11 @@ class MysqlReference extends StockReference
 	
 	public function GetNetValue($strDate)
 	{
+		if ($this->IsSinaFutureExceptGoldCN())
+		{
+			if ($strClose = SqlGetAdjCloseByDate($this->strSqlId, $strDate))	return floatval($strClose);
+			return false;
+		}
 		if ($this->iNetValueCount > 0)
 		{
 			if ($strClose = SqlGetNetValueByDate($this->strSqlId, $strDate))	return floatval($strClose);
@@ -66,10 +71,34 @@ class MysqlReference extends StockReference
 		}
 		return $this->GetVal($strDate);
 	}
-	
+
 	function GetNetValueDisplay($fNetValue)
 	{
+		if ($fNetValue === false)	return '';
 		return $this->GetPriceDisplay($fNetValue, false, ($this->iNetValueCount > 0 ? NETVALUE_PRECISION : $this->GetPrecision()));
+	}
+
+    public function GetOfficialNetValue()
+    {
+    	return false;
+    }
+    
+    public function GetFairNetValue()
+    {
+    	return false;
+    }
+    
+    public function GetRealtimeNetValue()
+    {
+    	return false;
+    }
+
+	function GetEstNetValue()
+	{
+		if ($fEst = $this->GetRealtimeNetValue())		return $fEst;
+		else if ($fEst = $this->GetFairNetValue())		return $fEst;
+		else if ($fEst = $this->GetOfficialNetValue())	return $fEst;
+		return false;
 	}
 
     function _loadSqlId($strSymbol)
@@ -97,7 +126,7 @@ class MysqlReference extends StockReference
     	return $this->fRatio;
     }
     
-    function LoadDailySqlData($sql)
+	function LoadDailySqlData($sql)
     {
        	if ($record = $sql->GetRecordNow($this->strSqlId))
        	{

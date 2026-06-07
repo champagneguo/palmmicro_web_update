@@ -124,7 +124,6 @@ class StockReference extends StockSymbol
     function GetPercentageString($fDivisor = false, $fDividend = false)
     {
    		$fPercentage = $this->GetPercentage($fDivisor, $fDividend);
-   		if ($fPercentage === false)		return '';
    		
     	if ($fDivisor == false)		$fDivisor = floatval($this->strPrevPrice);
 		if (abs($fPercentage * $fDivisor) < (50.0 / pow(10, $this->GetPrecision())))	return '0';
@@ -138,7 +137,9 @@ class StockReference extends StockSymbol
    		$str = $this->GetPercentageString($fDivisor, $fDividend);
    		if ($str != '' && $str != '0')
    		{
-   			$str = number_format(floatval($str), 2).'%';
+   			$str = number_format(floatval($str), 2);
+       		$str = rtrim(rtrim($str, '0'), '.');
+            $str .= '%';
    		}
    		return $str;
    	}
@@ -185,6 +186,11 @@ class StockReference extends StockSymbol
 		return $this->strTime;
 	}
     
+    function GetDateTime()
+    {
+        return $this->strDate.' '.$this->strTime;
+    }
+
 	function SetTime($strTime)
 	{
 		$this->strTime = $strTime;
@@ -214,7 +220,7 @@ class StockReference extends StockSymbol
     function ConvertTick()
     {
 		$this->SetTimeZone();
-		return strtotime($this->strDate.' '.$this->strTime);
+		return strtotime($this->GetDateTime());
     }
     
 	function IsExtendedMarket()
@@ -336,6 +342,18 @@ class StockReference extends StockSymbol
         	$this->strHigh = $ar[10];
         	$this->strLow = $ar[11];
         }
+        $strTimeZone = $this->GetTimeZone();
+        if ($strTimeZone != 'Asia/Shanghai')
+        {/*
+            $datetime = new DateTime($this->GetDateTime(), new DateTimeZone('Asia/Shanghai'));
+            $datetime->setTimezone(new DateTimeZone($strTimeZone));
+            $this->strDate = $datetime->format('Y-m-d');
+            $this->strTime = $datetime->format('H:i:s');*/
+            if (date_default_timezone_get() != 'Asia/Shanghai')		date_default_timezone_set('Asia/Shanghai');
+            $iTime = strtotime($this->GetDateTime());
+            $this->strDate = DebugGetDate($iTime, $strTimeZone);
+            $this->strTime = DebugGetTime($iTime, $strTimeZone);
+        }
 	}
     
     function LoadSinaData()
@@ -384,7 +402,7 @@ class StockReference extends StockSymbol
     {
 		$strTimeZone = $this->GetTimeZone();
 		
-		date_default_timezone_set('PRC');
+		date_default_timezone_set('Asia/Shanghai');
 		$iTime = strtotime($strDate.' '.$strTime);
 		date_default_timezone_set($strTimeZone);
 		

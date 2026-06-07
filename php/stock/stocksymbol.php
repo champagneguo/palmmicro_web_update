@@ -1,11 +1,54 @@
 <?php
 
-// SZ164212 SH501226 SZ159696
-
 /* https://finance.sina.com.cn/money/globalindex/ 
 https://finance.sina.com.cn/money/globalindex/asia.shtml
 gb_dji,gb_ixic,gb_inx,
 znb_UKX,znb_DAX,znb_INDEXCF,znb_CAC,znb_SMI,znb_FTSEMIB,znb_MADX,znb_OMX,znb_HEX,znb_OSEAX,znb_ISEQ,znb_AEX,znb_IBEX,znb_SX5E,znb_XU100,znb_NKY,znb_TWJQ,znb_FSSTI,znb_KOSPI,znb_FBMKLCI,znb_SET,znb_JCI,znb_PCOMP,znb_KSE100,znb_SENSEX,znb_VNINDEX,znb_CSEALL,znb_SASEIDX,znb_SPTSX,znb_MEXBOL,znb_IBOV,znb_MERVAL,znb_AS51,znb_NZSE50FG,znb_CASE,znb_JALSH
+rt_hkHSSI,hkHSSI_i,rt_hkCSCSHQ
+
+分类,代码,名称,仓位,相关指数,指数代码,申购费,申购状态,赎回费,赎回状态
+指数LOF,161716,招商双债LOF,95%,,-,0.80%,开放申购,1.50%,
+指数LOF,168204,煤炭LOF,95%,中证煤炭,399998,0,开放申购,1.50%,
+指数LOF,501089,消费红利增强LOF,95%,消费红利,H30094.CSI,1.20%,开放申购,1.50%,
+指数LOF,160706,沪深300LOF,95%,沪深300,399300,1.50%,开放申购,1.50%,
+指数LOF,501050,50AHLOF,95%,上证50优选,950090.CSI,1.50%,开放申购,1.50%,
+指数LOF,161812,深证100LOF,95%,深证100,399330,1.20%,开放申购,1.50%,
+指数LOF,501227,泓德红利优选LOF,90%,中证红利,000922.SZ,1.50%,开放申购,1.50%,
+指数LOF,161227,国投深证100LOF,95%,深证100,399330,1.20%,开放申购,1.50%,
+指数LOF,163109,申万深成LOF,95%,深证成指,399001,1.20%,开放申购,1.50%,
+指数LOF,161032,煤炭龙头LOF,95%,中证煤炭,399998,0,开放申购,1.50%,
+指数LOF,501043,沪深300LOF,95%,沪深300,399300,0.80%,开放申购,1.50%,
+指数LOF,161715,大宗商品LOF,95%,大宗商品,000979.CSI,1.20%,开放申购,1.50%,
+指数LOF,161631,人工智能LOF,95%,CS人工智能,930713.CSI,1.20%,开放申购,1.50%,
+指数LOF,160225,新能源汽车LOF,95%,新能源车,399417,0.00%,开放申购,1.50%,
+指数LOF,160643,空天军工LOF,95%,空天军工,930875.CSI,1.20%,开放申购,1.50%,
+指数LOF,501007,互联网医疗LOF,95%,CS互联网医疗,930720.CSI,0.80%,开放申购,1.50%,
+指数LOF,501058,新能源车LOFC,95%,新能源车,930997.CSI,0,开放申购,1.50%,
+指数LOF,160925,沪深300LOF,95%,中华沪深300,CES300.HI,1.20%,开放申购,1.50%,
+指数LOF,163407,兴全沪深300LOF,95%,沪深300,399300,1.20%,开放申购,1.50%,
+指数LOF,162412,医疗基金LOF,95%,中证医疗,399989,1.20%,开放申购,1.50%,
+指数LOF,163113,申万证券LOF,95%,CSSW证券,399707,1.20%,开放申购,1.50%,
+指数LOF,501057,新能源车LOF,95%,新能源车,930997.CSI,1.20%,开放申购,1.50%,
+指数LOF,160639,高铁LOF,95%,高铁产业,399807,0,开放申购,1.50%,
+指数LOF,161217,国投资源LOF,95%,中证上游,000961.CSI,1.20%,开放申购,1.50%,
+指数LOF,502000,500增强LOF,95%,中证500,000905,1.00%,开放申购,1.50%,
+指数LOF,160632,酒LOF,95%,中证酒,399987,0,开放申购,1.50%,
+指数LOF,161726,生物医药LOF,95%,生物医药,399441,1.00%,开放申购,1.50%,
+指数LOF,167301,保险主题LOF,95%,保险主题,399809,0.80%,开放申购,1.50%,
+指数LOF,161725,白酒基金LOF,95%,中证白酒,399997,1.00%,开放申购,1.50%,
+T+0 QDII 欧美,160125,南方香港LOF,95%,恒生指数,HSI,1.30%,开放申购,1.50%,
+T+0 QDII 亚洲,160322,港股精选LOF,95%,恒生综指,HSCI,1.00%,开放申购,1.50%,
+T+0 QDII 亚洲,501310,价值基金LOF,95%,标普中国价值,spchval,1.00%,开放申购,1.50%,
+T+0 QDII 亚洲,501305,港股高股息LOF,95%,港股通高股息,930914.CSI,1.50%,开放申购,1.50%,
+T+0 QDII 亚洲,501303,恒生中型股LOF,95%,恒生综合中型股,HSMI,1.00%,开放申购,1.50%,
+T+0 QDII 亚洲,501302,恒生指数基金LOF,95%,恒生指数,HSI,1.00%,开放申购,1.50%,
+T+0 QDII 亚洲,501021,香港中小LOF,95%,香港中小,HSMCI,1.00%,开放申购,1.50%,
+T+0 QDII 亚洲,501306,港股高股息LOFC,95%,港股通高股息,930914.CSI,1.20%,开放申购,1.50%,
+T+0 QDII 亚洲,501307,银华高股息LOF,95%,SHS高股息,930917.CSI,1.00%,开放申购,1.50%,
+T+0 QDII 亚洲,501301,香港大盘LOF,95%,恒生中国30,HSCCI,1.00%,开放申购,1.50%,
+T+0 QDII 亚洲,501311,新经济港股通LOF,95%,恒生港股通新经济,HSSCNE,1.00%,开放申购,1.50%,
+T+0 QDII 亚洲,501025,香港银行LOF,95%,HK银行,000869,1.00%,开放申购,1.50%,
+T+0 QDII 亚洲,161124,港股小盘LOF,95%,恒生小型股,HSSI,1.20%,开放申购,1.50%,
 */
 
 define('SINA_FOREX_PREFIX', 'fx_s');
@@ -40,9 +83,32 @@ function GetSecondaryListingArray()
 				  );
 }
 
+function ChinaIndexGetAshrArray()
+{
+    return ['SH501043', 'SH510300', 'SH510310', 'SH510330', 'SZ159919', 'SZ160706', 'SZ161005', 'SZ163407', 'SZ168401'];
+}
+
+function in_arrayAshrSymbol($strSymbol)
+{
+    return in_array($strSymbol, ChinaIndexGetAshrArray());
+}
+
+function ChinaIndexGetSz100Array()
+{
+    return ['SZ161227', 'SZ161812'];
+}
+
+function ChinaIndexGetCoalArray()
+{
+    return ['SZ161032', 'SZ168204'];
+}
+
 function ChinaIndexGetSymbolArray()
 {
-    return array('SH501043', 'SH510300', 'SH510310', 'SH510330', 'SZ159919');
+    return array_merge(ChinaIndexGetAshrArray(),
+                       ChinaIndexGetSz100Array(),
+                       ChinaIndexGetCoalArray(),
+                       ['SH502000', 'SZ160225', 'SZ160632', 'SZ160639', 'SZ161725', 'SZ161726', 'SZ162412', 'SZ163109', 'SZ163113', 'SZ167301']);
 }
 
 function in_arrayChinaIndex($strSymbol)
@@ -62,7 +128,7 @@ function in_arrayChinaFuture($strSymbol)
 
 function QdiiGetOilEtfSymbolArray()
 {
-    return array('SZ160416', 'SZ162719', 'SZ163208'); 
+    return array('SZ160416', 'SZ162719'); 
 }
 
 function in_arrayOilEtfQdii($strSymbol)
@@ -70,19 +136,19 @@ function in_arrayOilEtfQdii($strSymbol)
     return in_array($strSymbol, QdiiGetOilEtfSymbolArray());
 }
 
-function QdiiGetCommoditySymbolArray()
+function QdiiGetQqqMatchArray()
 {
-    return array('SZ161815'); 
+    return array('SH513100', 'SH513110', 'SH513390', 'SH513870', 'SZ159501', 'SZ159513', 'SZ159632', 'SZ159659', 'SZ159660', 'SZ159696', 'SZ159941', 'SZ161130'); 
 }
 
-function in_arrayCommodityQdii($strSymbol)
+function in_arrayQqqMatch($strSymbol)
 {
-    return in_array($strSymbol, QdiiGetCommoditySymbolArray());
+    return in_array($strSymbol, QdiiGetQqqMatchArray());
 }
 
 function QdiiGetQqqSymbolArray()
 {
-    return array('SH513100', 'SH513110', 'SH513300', 'SH513390', 'SH513870', 'SZ159501', 'SZ159513', 'SZ159632', 'SZ159659', 'SZ159660', 'SZ159696', 'SZ159941', 'SZ161130'); 
+    return array_merge(QdiiGetQqqMatchArray(), array('SH513300'));
 }
 
 function in_arrayQqqQdii($strSymbol)
@@ -90,9 +156,19 @@ function in_arrayQqqQdii($strSymbol)
     return in_array($strSymbol, QdiiGetQqqSymbolArray());
 }
 
+function QdiiGetSpyMatchArray()
+{
+    return array('SH513500', 'SH513650', 'SZ159612', 'SZ161125'); 
+}
+
+function in_arraySpyMatch($strSymbol)
+{
+    return in_array($strSymbol, QdiiGetSpyMatchArray());
+}
+
 function QdiiGetSpySymbolArray()
 {
-    return array('SH513500', 'SH513650', 'SZ159612', 'SZ159655', 'SZ161125'); 
+    return array_merge(QdiiGetSpyMatchArray(), array('SZ159655'));
 }
 
 function in_arraySpyQdii($strSymbol)
@@ -122,14 +198,12 @@ function in_arrayXbiQdii($strSymbol)
 
 function QdiiGetSymbolArray()
 {
-    $ar = array_merge(array('SH501300', 'SH513290', 'SH513400', 'SZ160140', 'SZ161126', 'SZ161128', 'SZ162415', 'SZ164824', 'SZ164906') 
+    $ar = array_merge(array('SH501300', 'SH513290', 'SH513400', 'SZ160140', 'SZ161126', 'SZ161128', 'SZ162415', 'SZ164906') 
     				   , QdiiGetXbiSymbolArray()
     				   , QdiiGetXopSymbolArray()
     				   , QdiiGetOilEtfSymbolArray()
-    				   , QdiiGetCommoditySymbolArray()
     				   , QdiiGetQqqSymbolArray()
     				   , QdiiGetSpySymbolArray());
-//    sort($ar);
     return $ar;
 }
 
@@ -190,7 +264,7 @@ function in_arrayQdiiHk($strSymbol)
 
 function QdiiJpGetNkySymbolArray()
 {
-    return array('SH513000', 'SH513520', 'SH513880', 'SZ159866');
+    return ['SH513000', 'SH513520', 'SH513880', 'SZ159866'];
 }
 
 function in_arrayNkyQdiiJp($strSymbol)
@@ -200,9 +274,7 @@ function in_arrayNkyQdiiJp($strSymbol)
 
 function QdiiJpGetSymbolArray()
 {
-    $ar = array_merge(array('SH513800') 
-    				   , QdiiJpGetNkySymbolArray());
-//    sort($ar);
+    $ar = array_merge(['SH513800'], QdiiJpGetNkySymbolArray());
     return $ar;
 }
 
@@ -256,26 +328,28 @@ function in_arrayHkMix($strSymbol)
 
 function GetQdiiGoldSymbolArray()
 {
-	return array('SZ160719', 'SZ161116', 'SZ164701', 'SZ165513');
+	return ['SZ160216', 'SZ161815', 'SZ160719', 'SZ161116', 'SZ164701', 'SZ165513'];
 }
 
 function GetQdiiOilSymbolArray()
 {
-	return array('SH501018', 'SZ160723', 'SZ161129');
+	return ['SZ163208', 'SH501018', 'SZ160723', 'SZ161129'];
 }
 
-/*
-function in_arrayOilQdii($strSymbol)
+function GetLofMixSymbolArray()
 {
-    return in_array($strSymbol, GetQdiiOilSymbolArray());
+	return array_merge(['SH501225', 'SH501312', 'SZ160644', 'SZ164824'], GetQdiiOilSymbolArray(), GetQdiiGoldSymbolArray());
 }
-*/
+
+function in_arrayLofMix($strSymbol)
+{
+    return in_array($strSymbol, GetLofMixSymbolArray());
+}
 
 function QdiiMixGetSymbolArray()
 {
-    $ar = array_merge(array('SH501225', 'SH501312', 'SH513360', 'SZ159509', 'SZ159529', 'SZ160216', 'SZ160644') 
-    				   , GetQdiiGoldSymbolArray()
-    				   , GetQdiiOilSymbolArray()
+    $ar = array_merge(array('SH513360', 'SZ159509', 'SZ159529')
+                       , GetLofMixSymbolArray()
     				   , GetChinaInternetSymbolArray()
     				   , GetHkMixSymbolArray()
     				   , GetMsciUs50SymbolArray());
@@ -307,7 +381,12 @@ function in_arrayAll($strSymbol)
 
 function GetOverNightSymbolArray()
 {
-	return array_merge(QdiiGetXopSymbolArray(), GetQdiiGoldSymbolArray(), GetQdiiOilSymbolArray(), array('SZ161125', 'SZ161127', 'SZ161130', 'SZ161226', 'SZ162415', 'SZ162719', 'SZ164906'));
+	return array_merge(QdiiGetXopSymbolArray(),
+                       array('SZ162719'),
+                       GetQdiiOilSymbolArray(),
+                       GetQdiiGoldSymbolArray(),
+                       array('SZ161226', 'SZ161125', 'SZ161126', 'SZ161130', 'SZ162415', 'SZ164824', 'SZ164906'),
+                       QdiiGetXbiSymbolArray());
 }
 
 function IsChinaStockDigit($strDigit)
@@ -406,7 +485,7 @@ function BuildChinaStockSymbol($strDigit)
         $iDigit = intval($strDigit);
         if (($iDigit < 100000) || ($iDigit >= 200000 && $iDigit < 400000))								return SZ_PREFIX.$strDigit;
         else if (($iDigit >= 400000 && $iDigit < 500000) || ($iDigit >= 800000 && $iDigit < 900000))	return BJ_PREFIX.$strDigit;
-        else if ($iDigit >= 600000)																			return SH_PREFIX.$strDigit;
+        else if ($iDigit >= 600000)																		return SH_PREFIX.$strDigit;
     }
     return false;
 }
@@ -738,6 +817,16 @@ class StockSymbol
     	return StrHasPrefix($this->strSymbol, SINA_CN_FUTURE_PREFIX); 
     }
 
+    function IsSinaFutureExceptGoldCN()
+    {
+        if ($str = $this->IsSinaFutureCN())
+        {
+            if ($str != 'AU0')  return true;
+        }
+        return false;
+    }
+
+
     function IsSinaFutureUS()
     {
     	return StrHasPrefix($this->strSymbol, SINA_FUTURE_PREFIX); 
@@ -892,20 +981,20 @@ class StockSymbol
 				return $strIndexPrefix.$this->strOthers;	// index ^HSI
 			}
         }
-        else if ($this->IsSymbolH())													return $this->strOthers.$strHK;	// Hongkong market
+        else if ($this->IsSymbolH())					return $this->strOthers.$strHK;	// Hongkong market
         else if ($this->IsSymbolA())
         {
-            if ($this->strPrefixA == SH_PREFIX)										return $this->strDigitA.'.ss';	// Shanghai market
-            else if ($this->strPrefixA == SZ_PREFIX)									return $this->strDigitA.'.sz';	// Shenzhen market
-            else if ($this->strPrefixA == BJ_PREFIX)									return $this->strDigitA.'.bj';	// Beijing market
+            if ($this->strPrefixA == SH_PREFIX)			return $this->strDigitA.'.ss';	// Shanghai market
+            else if ($this->strPrefixA == SZ_PREFIX)	return $this->strDigitA.'.sz';	// Shenzhen market
+            else if ($this->strPrefixA == BJ_PREFIX)	return $this->strDigitA.'.bj';	// Beijing market
         }
         return $strSymbol;
     }
     
     function GetPrecision()
     {
-    	if ($this->IsFundA() || $this->IsSinaFund() || $this->IsStockB())   	return 3;
-    	else if ($this->IsForex())   											return 4;
+    	if ($this->IsFundA() || $this->IsSinaFund() || $this->IsStockB())	return 3;
+    	else if ($this->IsForex())   										return 4;
     	return 2;
     }
 
@@ -935,13 +1024,10 @@ class StockSymbol
 			case 'DAX':
 			case 'NKY':
 			case 'TPX':
+			case 'SENSEX':	// PRC 1145
     			if ($iHourMinute < 900)		return true;
     			break;
-
-			case 'SENSEX':
-    			if ($iHourMinute < 1145)		return true;
-    			break;
-   		}
+	   		}
     	}
    		else if ($this->IsSymbolA())
    		{
@@ -976,7 +1062,7 @@ class StockSymbol
     			break;
 
 			case 'SENSEX':
-    			if ($iHourMinute > 1835)		return true;
+    			if ($iHourMinute > 1605)		return true;	// PRC 1835
     			break;
     		}
     	}
@@ -1034,10 +1120,10 @@ class StockSymbol
     {
     	$strEDT = 'America/New_York';
     	
-        if ($this->IsSinaFund())								{}
+        if ($this->IsSinaFund())							{}
         else if ($this->IsSinaFuture())
         {
-        	if ($this->IsSinaFutureUS())						return $strEDT;
+        	if ($this->IsSinaFutureUS())					return $strEDT;
         }
         else if ($this->IsSinaForex())						return $strEDT;
         else if ($this->IsEastMoneyForex())					{}
@@ -1053,13 +1139,15 @@ class StockSymbol
 				
 			case 'NKY':
 			case 'TPX':
+				return 'Asia/Tokyo';
+
 			case 'SENSEX':
-				return 'PRC';	//  'Asia/Tokyo';
+				return 'Asia/Kolkata';
 			}
 		}
         else if ($this->IsSymbolA() || $this->IsSymbolH())	{}
         else													return $strEDT;
-        return 'PRC';
+        return 'Asia/Shanghai';
     }
 
     function SetTimeZone()

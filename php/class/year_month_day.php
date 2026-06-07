@@ -54,6 +54,7 @@ class YearMonthDay
     {
     	clearstatcache(true, $strFileName);
     	$iFileTime = file_exists($strFileName) ? filemtime($strFileName) : 1;
+//    	DebugVal($iFileTime, __FUNCTION__.$strFileName, true);
    		return ($this->GetTick() < ($iFileTime + $iInterval)) ? false : $iFileTime;
     }
     
@@ -235,7 +236,7 @@ class NowYMD extends TickYMD
     
     public function __construct()
     {
-        $this->strTimeZone = 'PRC';
+        $this->strTimeZone = 'Asia/Shanghai';
     	date_default_timezone_set($this->strTimeZone);
         
         parent::__construct(time());

@@ -25,7 +25,7 @@ require_once('stock/fundpairref.php');
 function StockGetSymbol($str)
 {
 	$str = trim($str);
-	if ($strSymbol = BuildChinaFundSymbol($str))		return $strSymbol;
+	if ($strSymbol = BuildChinaFundSymbol($str))	return $strSymbol;
 	if ($strSymbol = BuildChinaStockSymbol($str))	return $strSymbol;
 	if (strpos($str, '_') === false)	$str = strtoupper($str);
     return $str;
@@ -88,29 +88,29 @@ function GetSinaQuotes($arSymbol)
     return false;
 }
 
-function StockGetPriceDisplay($fDisp, $fPrev, $iPrecision)
+function StockGetPriceDisplay($fDisp, $fPrev, $iPrecision, $strGreater = 'red', $strLess = 'green')
 {
-    if ($fDisp)
-    {
-    	$iDiff = 0.5;
-    	$iCur = $iPrecision;
-    	while ($iCur > 0)
-    	{
-    		$iDiff /= 10.0;
-    		$iCur --;
-    	}
+   	$iDiff = 0.5;
+   	$iCur = $iPrecision;
+   	while ($iCur > 0)
+   	{
+   		$iDiff /= 10.0;
+   		$iCur --;
+   	}
     	
-        if ($fDisp > $fPrev + $iDiff)         $strColor = 'red';
-        else if ($fDisp < $fPrev - $iDiff)    $strColor = 'green';
-        else                                  $strColor = 'black';
-        return GetFontElement(number_format($fDisp, $iPrecision, '.', ''), $strColor);
-    }
-    return '';
+    if ($fDisp > $fPrev + $iDiff)         $strColor = $strGreater;
+    else if ($fDisp < $fPrev - $iDiff)    $strColor = $strLess;
+    else                                  $strColor = 'grey';
+	$strDisp = number_format($fDisp, $iPrecision, '.', '');
+	if ($iPrecision > 0)	$strDisp = rtrim($strDisp, '0'); 
+	$strDisp = rtrim($strDisp, '.');
+    if ($strColor != 'black')	return GetFontElement($strDisp, $strColor);
+	return $strDisp;
 }
 
-function GetNumberDisplay($fVal, $iPrecision = 2)
+function GetNumberDisplay($fVal, $iPrecision = 2, $strGreater = 'black', $strLess = 'red')
 {
-    return StockGetPriceDisplay($fVal, 0.0, $iPrecision);
+    return StockGetPriceDisplay($fVal, 0.0, $iPrecision, $strGreater, $strLess);
 }
 
 function GetRatioDisplay($fVal, $iPrecision = 4)
@@ -121,7 +121,7 @@ function GetRatioDisplay($fVal, $iPrecision = 4)
 function StockGetPercentage($fDivisor, $fDividend)
 {
 	if (abs($fDivisor) > MIN_FLOAT_VAL)		return ($fDividend/$fDivisor - 1.0) * 100.0;
-	return false;
+	return 0.0;
 }
 
 function StockCompareEstResult($strStockId, $strNetValue, $strDate, $strSymbol)
@@ -133,10 +133,10 @@ function StockCompareEstResult($strStockId, $strNetValue, $strDate, $strSymbol)
        	if ($strEstValue = $fund_est_sql->GetClose($strStockId, $strDate))
        	{
        		$fPercentage = StockGetPercentage(floatval($strNetValue), floatval($strEstValue));
-       		if (($fPercentage !== false) && (abs($fPercentage) > 1.0))
+       		if (abs($fPercentage) > 1.0)
        		{
        			$strLink = GetNetValueHistoryLink($strSymbol);
-       			$str = sprintf('%s%s 实际值%s 估值%s 误差:%.2f%%', $strSymbol, $strLink, $strNetValue, $strEstValue, $fPercentage); 
+       			$str = sprintf('%s%s 实际值%s %s%s 误差:%.2f%%', $strSymbol, $strLink, $strNetValue, STOCK_DISP_EST, $strEstValue, $fPercentage); 
        			trigger_error('Net value estimation error '.$str);
        		}
        	}
@@ -147,19 +147,15 @@ function StockCompareEstResult($strStockId, $strNetValue, $strDate, $strSymbol)
 
 function StockUpdateEstResult($strStockId, $fNetValue, $strDate)
 {
-	$net_sql = GetNetValueHistorySql();
-	if ($net_sql->GetRecord($strStockId, $strDate) == false)
-    {   // Only update when net value is NOT ready
-    	$fund_est_sql = GetFundEstSql();
-		$fund_est_sql->WriteDaily($strStockId, $strDate, strval($fNetValue));
+	if ($fNetValue)
+	{
+		$net_sql = GetNetValueHistorySql();
+		if ($net_sql->GetRecord($strStockId, $strDate) == false)
+    	{   // Only update when net value is NOT ready
+    		$fund_est_sql = GetFundEstSql();
+			$fund_est_sql->WriteDaily($strStockId, $strDate, strval($fNetValue));
+		}
 	}
-}
-
-function RefGetTableColumnNetValue($ref)
-{
-	$strStockDisplay = TableColumnGetStock($ref);
-	if ($ref->CountNetValue() > 0)		return new TableColumnNetValue($strStockDisplay);	
-	return 								   	   new TableColumnPrice($strStockDisplay, 90);
 }
 
 function StockPrefetchArrayData($arSymbol)
@@ -207,7 +203,7 @@ function _getAllSymbolArray($strSymbol)
         	if ($strEstSymbol = QdiiGetEstSymbol($strSymbol))		
         	{
         		_addFundPairSymbol($ar, $strEstSymbol);
-        		_addHoldingsSymbol($ar, $strEstSymbol);		// KWEB
+        		_addHoldingsSymbol($ar, $strEstSymbol);
         	}
         	$ar[] = 'fx_susdcny';
         }
@@ -261,6 +257,7 @@ function _getAllSymbolArray($strSymbol)
     	if ($strSymbolH = SqlGetAdrhPair($strSymbol))
         {
            	$ar[] = $strSymbolH;
+			$ar[] = 'fx_susdhkd';
             if ($strSymbolA = SqlGetHaPair($strSymbolH))
             {
             	$ar[] = $strSymbolA;
@@ -271,6 +268,7 @@ function _getAllSymbolArray($strSymbol)
        	if ($strPairSymbol = SqlGetFundPair($strSymbol))
        	{
        		$ar[] = $strPairSymbol;
+			if ($strPairSymbol == 'znb_SENSEX')							$ar[] = 'fx_susdinr';
          	if ($strSymbol == 'ASHR' || $strSymbol == 'hf_CHA50CFD')	$ar[] = 'fx_susdcnh';
       	}
     }
@@ -393,11 +391,6 @@ function StockCalcHedge($fCalibration, $fPos)
 	return $fCalibration / $fPos;
 }
 	
-function StockCalcLeverageHedge($fCalibration, $fPos, $fEtfCalibration, $fEtfPos)
-{
-	return StockCalcHedge($fCalibration, $fPos) / StockCalcHedge($fEtfCalibration, $fEtfPos);
-}
-
 function GetLeverageHedgeSymbol($strSymbol)
 {
 	if (in_arraySpyQdii($strSymbol))	return 'SPY';
@@ -405,23 +398,36 @@ function GetLeverageHedgeSymbol($strSymbol)
     return false;
 }
 
-function GetStockHedge($strSymbol, $strStockId)
+function GetStockHedge($strSymbol, $strStockId, $strLev = false)
 {
 	$pos_sql = GetPositionSql();
-	if ($fPos = $pos_sql->ReadVal($strStockId))
-   	{
-   		$cal_sql = GetCalibrationSql();
-		if ($record = $cal_sql->GetRecordNow($strStockId))
+	$fPos = $pos_sql->ReadPos($strStockId);
+	$cal_sql = GetCalibrationSql();
+	if ($strLev || ($strLev = GetLeverageHedgeSymbol($strSymbol)))
+	{
+		$strLevId = SqlGetStockId($strLev);
+    	if ($result = $cal_sql->GetAll($strStockId)) 
     	{
-			$fCal = floatval($record['close']);
-			if ($strLev = GetLeverageHedgeSymbol($strSymbol))
-			{
-				$strLevId = SqlGetStockId($strLev);
-				return StockCalcLeverageHedge($fCal, $fPos, floatval($cal_sql->GetCloseFrom($strLevId, $record['date'])), $pos_sql->ReadVal($strLevId));
+    		while ($record = mysqli_fetch_assoc($result)) 
+    		{
+				$strDate = $record['date'];
+				if ($strLevCal = $cal_sql->GetClose($strLevId, $strDate))
+				{
+//					DebugString(__FUNCTION__.$strLev.' '.$strDate, true);
+		    		mysqli_free_result($result);
+					return StockCalcHedge(floatval($record['close']), $fPos) / StockCalcHedge(floatval($strLevCal), $pos_sql->ReadPos($strLevId));
+				}
 			}
-   			return StockCalcHedge($fCal, $fPos);
+	   		mysqli_free_result($result);
+    	}
+    }
+	else
+	{
+		if ($strCal = $cal_sql->GetCloseNow($strStockId))
+    	{
+   			return StockCalcHedge(floatval($strCal), $fPos);
    		}
-   	}
+	}
    	return 1.0;
 }
 

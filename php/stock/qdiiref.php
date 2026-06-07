@@ -18,30 +18,27 @@ function QdiiGetPeerVal($fQdii, $fCny, $fFactor)
 // https://markets.ft.com/data/indices/tearsheet/charts?s=SPGOGUP:
 function QdiiGetEstArray()
 {
-	$ar = array('SH501300' => 'AGG',
-                'SH513290' => 'IBB',
-                'SH513400' => '^DJI',
-                'SZ160140' => 'VNQ',	// SCHH
-                'SZ160416' => 'IXC',	// '^SPGOGUP'
-                'SZ161126' => 'RSPH',
-                'SZ161128' => 'XLK',
-                'SZ162415' => 'XLY',	// '^IXY'
-                'SZ162719' => 'IEO',	// '^DJSOEP'
-                'SZ163208' => 'XLE',
-                'SZ164824' => 'INDA',
-                'SZ164906' => 'KWEB',
-               );
-    foreach (QdiiGetXopSymbolArray() as $strSymbol)			$ar[$strSymbol] = 'XOP';	// '^SPSIOP'
-    foreach (QdiiGetXbiSymbolArray() as $strSymbol)			$ar[$strSymbol] = 'XBI';
-    foreach (QdiiGetCommoditySymbolArray() as $strSymbol)	$ar[$strSymbol] = 'GSG';
-    foreach (QdiiGetSpySymbolArray() as $strSymbol)			$ar[$strSymbol] = '^GSPC';	// 'SPY'
-    foreach (QdiiGetQqqSymbolArray() as $strSymbol)			$ar[$strSymbol] = '^NDX';	// 'QQQ'
+	$ar = ['SH501300' => 'AGG',
+           'SH513290' => 'IBB',
+           'SH513400' => '^DJI',
+           'SZ160140' => 'VNQ',		// SCHH
+           'SZ160416' => 'IXC',		// '^SPGOGUP'
+           'SZ161126' => 'RSPH',
+           'SZ161128' => 'VGT',		// XLK IXN
+           'SZ162415' => 'XLY',		// '^IXY'
+           'SZ162719' => 'IEO',		// '^DJSOEP'
+           'SZ164906' => 'KWEB',
+	      ];
+    foreach (QdiiGetXopSymbolArray() as $strSymbol)		$ar[$strSymbol] = 'XOP';	// '^SPSIOP'
+    foreach (QdiiGetXbiSymbolArray() as $strSymbol)		$ar[$strSymbol] = 'XBI';
+    foreach (QdiiGetSpySymbolArray() as $strSymbol)		$ar[$strSymbol] = '^GSPC';	// 'SPY'
+    foreach (QdiiGetQqqSymbolArray() as $strSymbol)		$ar[$strSymbol] = '^NDX';	// 'QQQ'
     return $ar;
 }
 
 function QdiiGetArray($strEst)
 {
-	$ar = array();
+	$ar = [];
 	foreach (QdiiGetEstArray() as $strSymbol => $str)
 	{
 		if ($str == $strEst)	$ar[] = $strSymbol;
@@ -54,52 +51,29 @@ function QdiiGetEstSymbol($strSymbol)
 	$ar = QdiiGetEstArray();
 	if (isset($ar[$strSymbol]))		return $ar[$strSymbol];
 	return false;
-	
-/*    if (in_arrayXopQdii($strSymbol))				return 'XOP';	// '^SPSIOP'
-    else if ($strSymbol == 'SZ162719')   			return 'IEO'; // '^DJSOEP'
-    else if ($strSymbol == 'SZ162415')   			return 'XLY';	// '^IXY'
-    else if ($strSymbol == 'SZ160140')   			return 'VNQ';	// SCHH
-    else if ($strSymbol == 'SZ160416')   			return 'IXC';	// '^SPGOGUP'
-    else if ($strSymbol == 'SZ161126')   			return 'RSPH';
-    else if (in_arrayXbiQdii($strSymbol))   		return 'XBI';
-    else if ($strSymbol == 'SZ161128')   			return 'XLK';
-    else if ($strSymbol == 'SZ163208')   			return 'XLE';
-    else if ($strSymbol == 'SZ164824')   			return 'INDA';
-    else if ($strSymbol == 'SZ164906')   			return 'KWEB';
-    else if (in_arrayCommodityQdii($strSymbol))		return 'GSG';
-    else if (in_arraySpyQdii($strSymbol))			return '^GSPC';	// 'SPY';
-    else if (in_arrayQqqQdii($strSymbol))			return '^NDX';	// 'QQQ';
-    else if ($strSymbol == 'SH501300')   			return 'AGG';
-    else if ($strSymbol == 'SH513290')   			return 'IBB';
-    else if ($strSymbol == 'SH513400')   			return '^DJI';
-    else 
-        return false;*/
 }
 
 function QdiiHkGetEstSymbol($strSymbol)
 {
     if ($strSymbol == 'SH501025')   		 									return 'SH000869';	// '03143'
     else if (in_arrayTechQdiiHk($strSymbol))									return '^HSTECH';
-    else if (in_arrayHangSengQdiiHk($strSymbol) || $strSymbol == 'SZ161124')	return '^HSI';		// '02800'
+    else if (in_arrayHangSengQdiiHk($strSymbol) || $strSymbol == 'SZ161124')	return '^HSI';		// '02800' || HKHSSI
     else if (in_arrayHSharesQdiiHk($strSymbol))									return '^HSCE';		// '02828'
-    else 
-        return false;
+    return false;
 }
 
 function QdiiJpGetEstSymbol($strSymbol)
 {
-    if ($strSymbol == 'SH513800')   		 		return 'znb_TPX';
-	else if (in_arrayNkyQdiiJp($strSymbol))			return 'znb_NKY';
-    else 
-        return false;
+    if ($strSymbol == 'SH513800')   			return 'znb_TPX';
+	else if (in_arrayNkyQdiiJp($strSymbol))		return 'znb_NKY';
+    return false;
 }
 
 function QdiiEuGetEstSymbol($strSymbol)
 {
-    if ($strSymbol == 'SH513080')   		 		return 'znb_CAC';
-	else if (in_arrayDaxQdiiEu($strSymbol))			return 'znb_DAX';
-    else 
-        return false;
+    if ($strSymbol == 'SH513080')   		 	return 'znb_CAC';
+	else if (in_arrayDaxQdiiEu($strSymbol))		return 'znb_DAX';
+    return false;
 }
 
 class _QdiiReference extends FundReference
@@ -116,6 +90,7 @@ class _QdiiReference extends FundReference
     {
 		if ($str = SqlGetNetValueByDate($est_ref->GetStockId(), $strDate))
         {
+            //DebugString(__FUNCTION__.$est_ref->GetSymbol().' '.$strDate.' '.$str, true);
         	return $str;
         }
         return false;
@@ -136,14 +111,14 @@ class _QdiiReference extends FundReference
     {
        	$est_ref = $this->GetEstRef();
 		if ($str = $this->_getEstNetValue($est_ref, $strDate))		return $str;
-       	if (method_exists($est_ref, 'GetHoldingsDate'))				return strval($est_ref->_estNetValue());
+       	if (method_exists($est_ref, 'GetHoldingsDate'))		return strval($est_ref->_estNetValue($strDate));
         return $this->_getEstPrice($est_ref, $strDate);
     }
 
     function _getFairEstVal($strDate)
     {
        	$est_ref = $this->GetEstRef();
-       	if (method_exists($est_ref, 'GetHoldingsDate'))				return strval($est_ref->_estNetValue());
+       	if (method_exists($est_ref, 'GetHoldingsDate'))		return strval($est_ref->_estNetValue());
        	if ($str = $this->_getEstNetValue($est_ref, $strDate))		return $str;
         return $this->_getEstPrice($est_ref, $strDate);
     }
@@ -168,9 +143,11 @@ class _QdiiReference extends FundReference
 			$fund_est_sql = GetFundEstSql();
             if ($record = $fund_est_sql->GetRecordNow($this->GetStockId()))
             {
-                $this->fOfficialNetValue = floatval($record['close']);
                 $this->strOfficialDate = $record['date'];
                 $this->strOfficialCNY = $cny_ref->GetClose($this->strOfficialDate);
+                $this->fOfficialNetValue = floatval($record['close']);
+        	    //$this->fOfficialNetValue = $this->GetQdiiValue($this->_getOfficialEstVal($this->strOfficialDate), $this->strOfficialCNY);
+                //$this->UpdateEstNetValue();
             }
             else
             {
@@ -188,8 +165,14 @@ class _QdiiReference extends FundReference
         
         $strDate = $est_ref->GetDate();
        	$cny_ref = $this->GetCnyRef();
-       	if ($this->IsEtfA() || ($cny_ref->GetDate() != $this->strOfficialDate) || ($strDate != $this->strOfficialDate))		$this->fFairNetValue = $this->GetQdiiValue($this->_getFairEstVal($strDate));
-		if ($realtime_ref = $this->GetRealtimeRef())															           	$this->fRealtimeNetValue = $this->GetQdiiValue(strval($est_ref->EstFromPair()));
+       	if ($this->IsEtfA() || ($cny_ref->GetDate() != $this->strOfficialDate) || ($strDate != $this->strOfficialDate))
+		{
+			$this->fFairNetValue = $this->GetQdiiValue($this->_getFairEstVal($strDate));
+		}
+		if ($this->GetRealtimeRef())
+		{
+			$this->fRealtimeNetValue = $this->GetQdiiValue(strval($est_ref->EstFromPair()));
+		}
     }
 
     function AdjustFactor()
@@ -259,10 +242,11 @@ class QdiiReference extends _QdiiReference
         
         if ($strEstSymbol = QdiiGetEstSymbol($strSymbol))
         {
-        	if (SqlCountHoldings($strEstSymbol) > 0)	$this->est_ref = new HoldingsReference($strEstSymbol);	// KWEB
-        	else										$this->est_ref = new FundPairReference($strEstSymbol);
+        	if (SqlCountHoldings($strEstSymbol) > 0)	$est_ref = new HoldingsReference($strEstSymbol);
+        	else										$est_ref = new FundPairReference($strEstSymbol);
+            $this->SetEstRef($est_ref);
         }
-        $this->forex_ref = new MyStockReference('fx_susdcny');
+        $this->SetForexRef('fx_susdcny');
         $this->EstNetValue();
     }
 }
@@ -275,9 +259,9 @@ class QdiiHkReference extends _QdiiReference
         
         if ($strEstSymbol = QdiiHkGetEstSymbol($strSymbol))
         {
-            $this->est_ref = new FundPairReference($strEstSymbol);
+            $this->SetEstRef(new FundPairReference($strEstSymbol));
         }
-        $this->forex_ref = new MyStockReference('fx_shkdcny');
+        $this->SetForexRef('fx_shkdcny');
         $this->EstNetValue();
     }
 }
@@ -290,9 +274,9 @@ class QdiiJpReference extends _QdiiReference
         
         if ($strEstSymbol = QdiiJpGetEstSymbol($strSymbol))
         {
-            $this->est_ref = new FundPairReference($strEstSymbol);
+            $this->SetEstRef(new FundPairReference($strEstSymbol));
         }
-        $this->forex_ref = new MyStockReference('fx_sjpycny');
+        $this->SetForexRef('fx_sjpycny');
         $this->EstNetValue();
     }
 }
@@ -305,9 +289,9 @@ class QdiiEuReference extends _QdiiReference
         
         if ($strEstSymbol = QdiiEuGetEstSymbol($strSymbol))
         {
-            $this->est_ref = new FundPairReference($strEstSymbol);
+            $this->SetEstRef(new FundPairReference($strEstSymbol));
         }
-        $this->forex_ref = new MyStockReference('fx_seurcny');
+        $this->SetForexRef('fx_seurcny');
         $this->EstNetValue();
     }
 }

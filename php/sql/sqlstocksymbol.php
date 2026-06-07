@@ -2,7 +2,8 @@
 //require_once('sqlint.php');
 require_once('sqlkeyname.php');
 require_once('sqlkeytable.php');
-require_once('sqldailyclose.php');
+//require_once('sqldailyclose.php');
+require_once('sqldailystring.php');
 require_once('sqldailytime.php');
 require_once('sqlholdings.php');
 require_once('sqlval.php');
@@ -74,7 +75,7 @@ class StockHistorySql extends DailyCloseSql
     {
     	if ($record = $this->$callback($strStockId, $strDate))
     	{
-    		return rtrim0($record['adjclose']);
+    		return $record['adjclose'];
     	}
     	return false;
     }
@@ -117,7 +118,7 @@ class StockSql extends KeyNameSql
        	$this->his_sql = new StockHistorySql();
         $this->holdings_sql = new HoldingsSql();
        	$this->net_sql = new DailyCloseSql('netvaluehistory');
-       	$this->pos_sql = new ValSql('fundposition');
+       	$this->pos_sql = new FundPositionSql();
        	
        	$this->ab_pair_sql = new StockPairSql('abpair');
        	$this->adr_pair_sql = new StockPairSql('adrpair');
@@ -260,6 +261,12 @@ function SqlGetHistoryByDate($strStockId, $strDate)
 {
 	$his_sql = GetStockHistorySql();
 	return $his_sql->GetClose($strStockId, $strDate);
+}
+
+function SqlGetAdjCloseByDate($strStockId, $strDate)
+{
+	$his_sql = GetStockHistorySql();
+	return $his_sql->GetAdjClose($strStockId, $strDate, true);
 }
 
 function GetStockEmaSql($iDays)

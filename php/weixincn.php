@@ -4,10 +4,12 @@ require_once('stockbot.php');
 
 function _wxDebug($strUserName, $strText, $strSubject)
 {   
+	$strNewLine = GetHtmlNewLine();
+
 	$str = GetInfoElement('用户：').$strUserName;
-	$str .= '<br />'.$strText;
-	$str .= '<br />'.GetWeixinLink();
-    trigger_error($strSubject.'<br />'.$str);
+	$str .= $strNewLine.$strText;
+	$str .= $strNewLine.GetWeixinLink();
+    trigger_error($strSubject.$strNewLine.$str);
 }
 
 function _wxEmailInfo()
@@ -38,7 +40,7 @@ class WeixinStock extends WeixinCallback
 
 		_wxDebug($strUserName, GetRemarkElement('内容：').$strDebug, 'Wechat message');
 		$str = $strContents.BOT_EOL;
-		$str .= '本公众号目前只提供部分股票交易和净值估算自动查询。因为没有匹配到信息，此消息内容已经'._wxEmailInfo();
+		$str .= '本公众号目前只提供部分股票交易和'.STOCK_DISP_NETVALUE.'估算自动查询，建议在公众号文章下留言讨论具体问题。因为没有匹配到信息，此消息内容已经'._wxEmailInfo();
 		return $str;
 	}
 
@@ -46,7 +48,10 @@ class WeixinStock extends WeixinCallback
 	{
 		LogBotVisit(TABLE_WECHAT_BOT, $strText, $strUserName);
 	    
+        if (stripos($strText, 'Q群') !== false)		return 'QQ群已经在2020年停用。'.BOT_EOL;
         if (strpos($strText, '商务合作') !== false)	return '请把具体合作内容和方式'._wxEmailInfo();
+		if (preg_match('/(?:义工|套利|微信|[有进加入拉])群/u', $strText))			
+				return '请阅读公众号文章：'.GetLinkElement('市值百万的微信号起点兼2025年卖铲子总结', 'https://mp.weixin.qq.com/s/CbfbWZaBl-ikheuQnpiltA').BOT_EOL;
         
         if ($str = StockBotGetStr($strText, $this->GetVersion()))		return $str;
 		return $this->GetUnknownText($strText, $strUserName);

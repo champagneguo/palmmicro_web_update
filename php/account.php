@@ -50,16 +50,12 @@ class Account
 
 	    $strIp = UrlGetIp();
    		$ymd = GetNowYMD();
-   		$iCurTick = $ymd->GetTick();
     	
 	    if ($this->IsMalicious($strIp))		die('403 Forbidden');
 	    else if ($this->IsCrawler($strIp))
 	    {
-	    	if ($iTick = $tick_sql->ReadInt($strIp))
-	    	{
-	    		if ($iCurTick - $iTick < SECONDS_IN_DAY)		SwitchToLink('/account/code429.php');
-	    	}
-	    	$this->bAllowCurl = false;
+			if ($this->_allowCrawler($ymd, $tick_sql, $strIp))	$this->bAllowCurl = false;
+			else												SwitchToLink('/account/code429.php');
 	    }
 
 	    $strUri = UrlGetUri();
@@ -74,12 +70,13 @@ class Account
 	    if ($iCount >= 1000)
 	    {
 	    	$iPageCount = $this->visitor_sql->CountUniqueDst($strId);
-	    	$strDebug = '访问次数: '.strval($iCount).'<br />不同页面数: '.strval($iPageCount).'<br />';
-	    	if ($this->GetLoginId())						$strDebug .= 'logined!<br />';
+			$strNewLine = GetHtmlNewLine();
+	    	$strDebug = '访问次数: '.strval($iCount).$strNewLine.'不同页面数: '.strval($iPageCount).$strNewLine;
+	    	if ($this->GetLoginId())					$strDebug .= 'logined!'.$strNewLine;
 	    	if ($this->bAllowCurl === false)
 	    	{
 	    		$strDebug .= '已标注的老爬虫';
-	    		$tick_sql->WriteInt($strIp, $iCurTick);
+	    		$tick_sql->WriteInt($strIp, $ymd->GetTick());
 	    	}
 	    	else
 	    	{
@@ -101,6 +98,20 @@ class Account
 	   	}
 		InitGlobalStockSql();
     }
+
+	function _allowCrawler($ymd, $tick_sql, $strIp)
+	{
+		if ($ymd->IsWeekDay())
+		{
+			$iHourMinute = $ymd->GetHourMinute();
+			if ($iHourMinute > 900 && $iHourMinute < 1610)	return false;
+		}
+	    if ($iTick = $tick_sql->ReadInt($strIp))
+	    {
+			if ($ymd->GetTick() - $iTick < SECONDS_IN_DAY/2)	return false;
+	    }
+		return true;
+	}
 
     function IsCrawler($strIp)
     {

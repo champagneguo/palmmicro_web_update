@@ -1,13 +1,5 @@
 <?php
 
-/*
-function SqlSetNetValue($strStockId, $strDate, $strNetValue)
-{
-	$net_sql = GetNetValueHistorySql();
-	return $net_sql->InsertDaily($strStockId, $strDate, $strNetValue);
-}
-*/
-
 function RefAdjustForex($ref, $fAdjustHKD, $fAdjustUSD)
 {
 	if ($ref->IsSymbolA())		$fAdjust = 1.0;
@@ -34,7 +26,7 @@ class HoldingsReference extends MyStockReference
     var $ar_realtime_ref = array();
 
     var $strNetValue;
-    var $strHoldingsDate;
+    var $strHoldingsDate = false;
     var $arHoldingsDateHistory = array();
     var $arHoldingsRatio = array();
     
@@ -168,24 +160,42 @@ class HoldingsReference extends MyStockReference
     	return $this->arHoldingsRatio;
     }
     
-    function SetHoldingsRatioArray($ar)
-    {
-    	$iCount = 0;
-		foreach ($this->arHoldingsRatio as $strId => $strRatio)
-		{
-			$this->arHoldingsRatio[$strId] = $ar[$iCount];
-			$iCount ++;
-		}
-    }
-    
     function CheckHoldingsDate($strDate)
     {
     	$his_sql = GetStockHistorySql();
-		foreach ($this->arHoldingsRatio as $strId => $strRatio)
+		foreach ($this->arHoldingsRatio as $strHoldingId => $strRatio)
 		{
-			if ($his_sql->GetClose($strId, $strDate) === false)		return false;
+			if ($his_sql->GetClose($strHoldingId, $strDate) === false)		return false;
 		}
 		return true;
+    }
+
+	function GetProportionArray($strDate, $strPrevDate)
+    {
+	   	$his_sql = GetStockHistorySql();
+	    $ar = array();
+		foreach ($this->ar_holdings_ref as $ref)
+	    {
+            if ($fProportion = $his_sql->GetProportion($ref->GetStockId(), $strDate, $strPrevDate))
+		    {
+				if ($ref->IsSymbolA())
+				{
+					$fProportion /= $this->uscny_ref->GetVal($strDate);
+					$fProportion *= $this->uscny_ref->GetVal($strPrevDate);
+				}
+				else if ($ref->IsSymbolH())
+				{
+					$fProportion /= $this->uscny_ref->GetVal($strDate) / $this->hkcny_ref->GetVal($strDate);
+					$fProportion *= $this->uscny_ref->GetVal($strPrevDate) / $this->hkcny_ref->GetVal($strPrevDate);
+				}
+				$ar[] = $fProportion;
+			}
+			else
+			{
+			 	return false;
+			}
+		}
+	    return $ar;
     }
     
     function GetHoldingsRefArray()
@@ -193,11 +203,9 @@ class HoldingsReference extends MyStockReference
     	return $this->ar_holdings_ref;
     }
     
-    function GetHoldingsDisplay()
+    function CountHoldings()
     {
-    	$str = '';
-    	foreach ($this->ar_holdings_ref as $ref)	$str .= $ref->GetSymbol().'*'.$this->arHoldingsRatio[$ref->GetStockId()].';';
-    	return rtrim($str, ';');
+		return count($this->ar_holdings_ref);
     }
     
     function GetHoldingsRatioDisplay()

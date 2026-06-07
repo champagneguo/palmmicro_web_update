@@ -2,9 +2,10 @@
 require('_tgprivate.php');
 require_once('stockbot.php');
 require_once('stockdataarray.php');
+require_once('tutorial/iprules.php');
 
 // 电报公共模板, 返回输入信息
-define('TG_DEBUG_VER', '版本038');		
+define('TG_DEBUG_VER', '版本047');		
 
 define('BOT_EOL', "\r\n");
 define('MAX_BOT_MSG_LEN', 2048);
@@ -12,6 +13,16 @@ define('MAX_BOT_MSG_LEN', 2048);
 define('TG_API_URL', 'https://api.telegram.org/bot'.TG_TOKEN.'/');
 define('TG_ADMIN_CHAT_ID', '992671436');		// @sz152
 define('TG_CAST_CHAT_ID', '-1001346320717');	// @palmmicrochan
+
+function _inBlackList($strIp)
+{
+	$ar = ['36.143.159.189', '66.90.98.35', '119.135.210.182', '203.10.99.42'];
+	foreach ($ar as $str)
+	{
+		if (isIpInSubnetAuto($strIp, $str))		return true;
+	}
+	return false;
+}
 
 class TelegramCallback
 {
@@ -66,27 +77,46 @@ class TelegramCallback
 
 	function _processMessage($message) 
 	{	// process incoming message
-		$strMessageId = $message['message_id'];
-		$strChatId = $message['chat']['id'];
+		if (isset($message['message_id']))	$strMessageId = $message['message_id'];
+		else								return;
+
+		if (isset($message['chat']))		$strChatId = $message['chat']['id'];
+		else								return;
+
 		if (isset($message['text'])) 
 		{	// incoming text message
-			$text = $message['text'];
-			LogBotVisit(TABLE_TELEGRAM_BOT, $text, $strChatId);
-			if (str_starts_with($text, '@'))
+			$strText = $message['text'];
+			$strIp = LogBotVisit(TABLE_TELEGRAM_BOT, $strText, $strChatId);
+			if ($strToken = UrlGetQueryValue('token'))
 			{
-				$text = ltrim($text, '@');
-				$strToken = UrlGetQueryValue('token');
-				if ($strChatId == TG_ADMIN_CHAT_ID && ($strToken == TG_TOKEN || $strToken == TG_TOKEN_ZHU))
+				if (_inBlackList($strIp))
 				{
-					DebugString(__CLASS__.'->'.__FUNCTION__.' '.$text);
-					$this->ReplyText(GetStockDataArray($text), $strMessageId, $strChatId);
+		        	$this->ReplyText($strIp.' API访问太频繁', $strMessageId, $strChatId);
 					return;
 				}
+				if ($strToken == TG_TOKEN || $strToken == WECHAT_QMT_KEY)
+				{
+					$this->ReplyText(GetStockDataArray($strText), $strMessageId, $strChatId);
+				}
+				else if ($strToken == WECHAT_ROT_KEY)
+				{
+					$this->ReplyText(GetStockDataArray($strText, array_merge(QdiiGetQqqMatchArray(),
+																			 QdiiGetSpyMatchArray(),
+																			 QdiiGetXopSymbolArray(),
+																			 QdiiGetXbiSymbolArray())), $strMessageId, $strChatId);
+				}
+				else
+				{
+					$str = '无效token: '.$strToken;
+					$this->Debug($str);
+					DebugString(__CLASS__.__FUNCTION__.$str);
+				}
+				return;
 			}
-			else if (str_starts_with($text, '/'))
+			else if (str_starts_with($strText, '/'))
 			{
-				$text = trim(ltrim($text, '/'));
-				switch ($text)
+				$strText = trim(ltrim($strText, '/'));
+				switch ($strText)
 				{
 				case 'start':
 //					apiRequestJson("sendMessage", array('chat_id' => $strChatId, "text" => 'Hello', 'reply_markup' => array('keyboard' => array(array('Hello', 'Hi')), 'one_time_keyboard' => true, 'resize_keyboard' => true)));
@@ -96,7 +126,14 @@ class TelegramCallback
 					return;
 				}
 			} 
-			$this->OnText($text, $strMessageId, $strChatId);
+			if ($strIp != '91.108.5.6')
+			{
+				$str = '未授权IP: '.$strIp;
+        		$this->Debug($str);
+				DebugString(__CLASS__.__FUNCTION__.$str);
+				return;
+			}
+			$this->OnText($strText, $strMessageId, $strChatId);
 		}
 		else 
 		{

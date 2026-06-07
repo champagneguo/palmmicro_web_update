@@ -3,12 +3,9 @@ require_once('_fundgroup.php');
 require_once('_sseholdings.php');
 require_once('_szseholdings.php');
 
-// SH501225 全球芯片LOF SOXX*75%+SH516640*15%
-// SH501312 海外科技LOF ARKW*19.56;ARKK*19.66;ARKF*16.75;ARKG*11.86;ARKQ*5.37;QQQ*8.88;SOXX*7.44;XLK*5.2
-// SZ160644 NVDA*9.48;MSFT*7.33;TSM*9.21;PDD*7.27;GOOGL*6.38;00700*6.26;09988*4.85;META*4.85;AMZN*5.8;03690*3.62
-
 class _QdiiMixAccount extends FundGroupAccount
 {
+	var $inr_ref = false;
     var $cnh_ref;
 
     function Create()
@@ -26,11 +23,18 @@ class _QdiiMixAccount extends FundGroupAccount
         {
         	$ar_realtime_ref = $this->ref->GetRealtimeRefArray();
         	$arRef = array_merge($arRef, $ar_realtime_ref);
-        	$arPairSymbol = array();
         	foreach ($ar_realtime_ref as $ref)
         	{
         		$pair_ref = $ref->GetPairRef();
 				if (in_array_ref($pair_ref, $arRef) == false)	$arRef[] = $pair_ref;
+				if ($ref->GetSymbol() == 'INDA')
+				{
+					$this->inr_ref = $ref->GetCnyRef();
+					if (YahooUpdateNetValue($ref))
+        			{
+        				$ref->DailyCalibration();
+        			}
+				}	
         	}
         }
 
@@ -48,23 +52,12 @@ class _QdiiMixAccount extends FundGroupAccount
     	
     	$date_sql = new HoldingsDateSql();
     	$strHoldingsDate = $date_sql->ReadDate($strStockId);
-		if ($strNetValueDate == $strHoldingsDate)											return;	// Already up to date
-    	if ($strHoldingsDate == $ref->GetOfficialDate())									return;
+		if ($strNetValueDate == $strHoldingsDate)			return;	// Already up to date
+    	if ($strHoldingsDate == $ref->GetOfficialDate())	return;
     	
     	$bUpdated = false;
-    	switch ($strSymbol)
+		if (in_arrayLofMix($strSymbol))
     	{
-    	case 'SZ160216':
-		case 'SZ160644':
-		case 'SZ160719':
-		case 'SZ160723':
-		case 'SZ161116':
-		case 'SZ161129':
-		case 'SZ164701':
-		case 'SZ165513':
-		case 'SH501018':
-		case 'SH501225':
-		case 'SH501312':
         	if ($strNetValueDate != $strHoldingsDate)		
         	{
         		if ($ref->CheckHoldingsDate($strNetValueDate))
@@ -72,33 +65,31 @@ class _QdiiMixAccount extends FundGroupAccount
         			if ($date_sql->WriteDate($strStockId, $strNetValueDate))		$bUpdated = true;
         		}
         	}
-        	break;
-		
-		default:
-    		$fund_est_sql = GetFundEstSql();
+		}
+		else
+		{
+	   		$fund_est_sql = GetFundEstSql();
     		$strEstDate = $fund_est_sql->GetDateNow($strStockId);
-    		if ($strEstDate == $strNetValueDate)													return;	//
+    		if ($strEstDate == $strNetValueDate)	return;	//
     		$strDate = $ref->GetDate();
     		if (!in_arrayHkMix($strSymbol))
     		{
-    			if ($strEstDate == $strDate)													return;	// A day too early
+    			if ($strEstDate == $strDate)		return;	// A day too early
     		}
     		
     		$iHourMinute = $ref->GetHourMinute();
-    		if ($iHourMinute < 930)															return;	// Data not updated until 9:30
-			else if ($iHourMinute > 1455)													return;	// Stop autoupdate after market close. 美股休市后第2天的盘前，有可能会有数据看上去像休市日数据，导致5分钟一次频繁下载老文件。这里有意错过每天美股盘前时间，并且考虑了夏令时的不同最坏情况。
+    		if ($iHourMinute < 930)					return;	// Data not updated until 9:30
+			else if ($iHourMinute > 1455)			return;	// Stop autoupdate after market close. 美股休市后第2天的盘前，有可能会有数据看上去像休市日数据，导致5分钟一次频繁下载老文件。这里有意错过每天美股盘前时间，并且考虑了夏令时的不同最坏情况。
 
     		$strSymbol = $ref->GetSymbol();
     		if ($ref->IsShangHaiEtf())		$bUpdated = ReadSseHoldingsFile($strSymbol, $strStockId);
     		else if ($ref->IsShenZhenEtf())	$bUpdated = ReadSzseHoldingsFile($strSymbol, $strStockId, $strDate);
-    		break;
     	}
     	
     	if ($bUpdated)
     	{
     		unset($this->ref);
     		$this->ref = new HoldingsReference($strSymbol);
-//    		DebugString('Holdings updated');
     	}
     }
 }
@@ -110,7 +101,7 @@ function EchoAll()
     $ref = $acct->GetRef();
     $uscny_ref = $ref->GetCnyRef();
     $hkcny_ref = $ref->GetHkcnyRef();
-    $arForex = array($acct->cnh_ref);
+    $arForex = [$acct->cnh_ref];
     if ($uscny_ref !== false)
     {
     	$arForex[] = $ref->GetUsdcnyRef();
@@ -121,12 +112,16 @@ function EchoAll()
     	$arForex[] = $ref->GetHkdcnyRef();
     	$arForex[] = $hkcny_ref;
     }
+	if ($acct->inr_ref !== false)
+	{
+    	$arForex[] = $acct->inr_ref;
+	}	
     
 	EchoHoldingsEstParagraph($ref);
     EchoReferenceParagraph(array_merge($acct->GetStockRefArray(), 
     									//$ref->GetHoldingsRefArray(), 
-    									$arForex), $acct->IsAdmin());
-    
+    								   $arForex),
+						   $acct->IsAdmin());
 	EchoFundTradingParagraph($ref);
     if ($ref->UseRealtimeEst())		EchoFundListParagraph($ref->GetRealtimeRefArray());
 
@@ -150,7 +145,7 @@ function GetMetaDescription()
     global $acct;
 
     $strDescription = $acct->GetStockDisplay();
-    $str = "根据美元人民币汇率中间价和港币人民币汇率中间价以及成分股持仓涨跌比例估算{$strDescription}净值的网页工具.";
+    $str = "根据美元人民币汇率中间价和港币人民币汇率中间价以及成分股持仓涨跌比例估算{$strDescription}".STOCK_DISP_NETVALUE.'的网页工具.';
     return CheckMetaDescription($str);
 }
 

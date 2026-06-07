@@ -17,14 +17,14 @@ function _getFundAmount($strSymbol, $strDate)
 		break;
 		
 	case 'SZ160723':
-		if ($iTick >= strtotime('2025-03-18'))			$iAmount = 100;
-		else											$iAmount = 10000;
+		if ($iTick >= strtotime('2025-03-18'))	$iAmount = 100;
+		else									$iAmount = 10000;
 		break;
 		
 	case 'SZ160416':
-		if ($iTick >= strtotime('2020-10-27'))			$iAmount = 2000;
-		else if ($iTick >= strtotime('2020-09-11'))		$iAmount = 1000;
-		else											$iAmount = 10000;
+		if ($iTick >= strtotime('2020-10-27'))		$iAmount = 2000;
+		else if ($iTick >= strtotime('2020-09-11'))	$iAmount = 1000;
+		else										$iAmount = 10000;
 		break;
 		
 	case 'SZ160719':
@@ -36,43 +36,43 @@ function _getFundAmount($strSymbol, $strDate)
 		break;
 		
 	case 'SZ161129':
-		if ($iTick < strtotime('2025-04-23'))			$iAmount = 500;
-		else											$iAmount = 100;
+		if ($iTick < strtotime('2025-04-23'))	$iAmount = 500;
+		else									$iAmount = 100;
 		break;
 		
 	case 'SZ161126':
 	case 'SZ161127':
 	case 'SZ161130':
-		if ($iTick < strtotime('2024-12-10'))			$iAmount = 300;
-		else											$iAmount = 100;
+		if ($iTick < strtotime('2024-12-10'))	$iAmount = 300;
+		else									$iAmount = 100;
 		break;
 
 	case 'SZ161226':
-		if ($iTick >= strtotime('2025-12-22'))			$iAmount = 500;
-		else											$iAmount = 100;
+		if ($iTick >= strtotime('2025-12-22') && $iTick < strtotime('2025-12-27'))	$iAmount = 500;
+		else																		$iAmount = 100;
 		break;
 		
 	case 'SZ161125':
 	case 'SZ161128':
-		if ($iTick >= strtotime('2024-10-25') && $iTick < strtotime('2024-12-10'))			$iAmount = 300;
-		else											$iAmount = 100;
+		if ($iTick >= strtotime('2024-10-25') && $iTick < strtotime('2024-12-10'))	$iAmount = 300;
+		else																		$iAmount = 100;
 		break;
 		
 	case 'SZ162411':
-		if ($iTick >= strtotime('2025-03-24'))			$iAmount = 50;
-		else if ($iTick >= strtotime('2020-07-14'))		$iAmount = 100;
-		else											$iAmount = 1000;
+		if ($iTick >= strtotime('2025-03-24'))		$iAmount = 50;
+		else if ($iTick >= strtotime('2020-07-14'))	$iAmount = 100;
+		else										$iAmount = 1000;
 		break;
 		
 	case 'SZ162719':
-		if ($iTick >= strtotime('2020-08-06'))			$iAmount = 500;
-		else											$iAmount = 1000;
+		if ($iTick >= strtotime('2020-08-06'))	$iAmount = 500;
+		else									$iAmount = 1000;
 		break;
 
 	case 'SZ164906':
-		if ($iTick >= strtotime('2022-05-23'))			$iAmount = 500;
-		else if ($iTick >= strtotime('2021-11-30'))		$iAmount = 1000;
-		else											$iAmount = 5000;
+		if ($iTick >= strtotime('2022-05-23'))		$iAmount = 500;
+		else if ($iTick >= strtotime('2021-11-30'))	$iAmount = 1000;
+		else										$iAmount = 5000;
 		break;
 		
 	default:
@@ -177,14 +177,15 @@ function _echoFundAccountParagraph($csv, $ref, $strSymbol, $strStockId, $his_sql
  	$str = GetFundLinks($strSymbol);
 	if ($bAdmin)	$str .= ' '.GetStockOptionLink(STOCK_OPTION_SHARE_DIFF, $strSymbol);
 	
-	EchoTableParagraphBegin(_getFundAccountTableColumnArray(), 'fundaccount', $str);
-	_echoFundAccountData($csv, $ref, $strSymbol, $strStockId, $his_sql, $iDays);
-    EchoTableParagraphEnd();
+	if (EchoTableParagraphBegin(_getFundAccountTableColumnArray(), 'fundaccount', $str))
+	{
+		_echoFundAccountData($csv, $ref, $strSymbol, $strStockId, $his_sql, $iDays);
+    	EchoTableParagraphEnd();
+	}
 }
 
 function _echoFundAccountPredictData($ref, $strSymbol, $strStockId, $his_sql, $iDays, $jpg)
 {
-//    date_default_timezone_set('PRC');
 	$ref->SetTimeZone();
     $now_ymd = GetNowYMD();
 
@@ -260,13 +261,16 @@ function _echoLinearRegressionGraph($csv, $ref, $strSymbol, $strStockId, $his_sq
     $jpg = new LinearImageFile();
     if ($jpg->Draw($csv->ReadColumn(5), $csv->ReadColumn(2)))
     {
+		$strNewLine = GetHtmlNewLine();
     	$str = $csv->GetLink();
-    	$str .= '<br />'.$jpg->GetAllLinks();
-    	$str .= '<br />下一交易日'.STOCK_OPTION_SHARE_DIFF.'预测';
+    	$str .= $strNewLine.$jpg->GetAllLinks();
+    	$str .= $strNewLine.'下一交易日'.STOCK_OPTION_SHARE_DIFF.'预测';
 
-    	EchoTableParagraphBegin(_getFundAccountTableColumnArray(), 'predict'.'fundaccount', $str);
-    	_echoFundAccountPredictData($ref, $strSymbol, $strStockId, $his_sql, $iDays, $jpg);
-    	EchoTableParagraphEnd();
+    	if (EchoTableParagraphBegin(_getFundAccountTableColumnArray(), 'predict'.'fundaccount', $str))
+		{
+	    	_echoFundAccountPredictData($ref, $strSymbol, $strStockId, $his_sql, $iDays, $jpg);
+    		EchoTableParagraphEnd();
+		}
     }
 }
 
@@ -274,7 +278,6 @@ function EchoAll()
 {
 	global $acct;
 	
-	$bAdmin = $acct->IsAdmin();
     if ($ref = $acct->EchoStockGroup())
     {
    		$strSymbol = $ref->GetSymbol();
@@ -293,7 +296,7 @@ function EchoAll()
         	$his_sql = GetStockHistorySql();
         	
         	$csv = new PageCsvFile();
-            _echoFundAccountParagraph($csv, $ref, $strSymbol, $strStockId, $his_sql, $iDays, $bAdmin);
+            _echoFundAccountParagraph($csv, $ref, $strSymbol, $strStockId, $his_sql, $iDays, $acct->IsAdmin());
             $csv->Close();
             if ($csv->HasFile())	_echoLinearRegressionGraph($csv, $ref, $strSymbol, $strStockId, $his_sql, $iDays);
             EchoRemarks($strSymbol);

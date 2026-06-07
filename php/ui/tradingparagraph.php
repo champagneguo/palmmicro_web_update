@@ -15,12 +15,14 @@ function _echoTradingTableItem($strColor, $strAskBid, $strPrice, $strQuantity, $
 	if ($strQuantity == '0')	return;
 	
     $ar = array($strAskBid);
-    $ar[] = $ref->GetPriceDisplay(floatval($strPrice), floatval($ref->GetPrevPrice()));
+
+	$fPrice = floatval($strPrice);
+    $ar[] = $ref->GetPriceDisplay($fPrice, floatval($ref->GetPrevPrice()));
     $ar[] = $strQuantity;
     
-	if ($fEstPrice)		$ar[] = $ref->GetPercentageDisplay($fEstPrice, $strPrice);
-	if ($fEstPrice2)	$ar[] = $ref->GetPercentageDisplay($fEstPrice2, $strPrice);
-	if ($fEstPrice3)	$ar[] = $ref->GetPercentageDisplay($fEstPrice3, $strPrice);
+	if ($fEstPrice)		$ar[] = $ref->GetPercentageDisplay($fEstPrice, $fPrice);
+	if ($fEstPrice2)	$ar[] = $ref->GetPercentageDisplay($fEstPrice2, $fPrice);
+	if ($fEstPrice3)	$ar[] = $ref->GetPercentageDisplay($fEstPrice3, $fPrice);
     if ($callback && (empty($strPrice) == false))
     {
     	$ar[] = call_user_func($callback, $strPrice);
@@ -41,7 +43,9 @@ function _getTradingIndex($i)
 
 function _echoTradingTableData($ref, $fEstPrice, $fEstPrice2, $fEstPrice3, $callback)
 {
-   	$fPrice = floatval($ref->IsStockMarketTrading(GetNowYMD(), false) ? $ref->GetPrevPrice() : $ref->GetPrice());
+	$now_ymd = GetNowYMD();
+	//DebugString(__FUNCTION__.' '.$now_ymd->GetYMD().' '.$ref->GetDate(), true);
+   	$fPrice = floatval(($ref->IsStockMarketTrading($now_ymd, false) && ($now_ymd->GetYMD() == $ref->GetDate())) ? $ref->GetPrevPrice() : $ref->GetPrice());
    	$iPrecision = $ref->GetPrecision();
    	$strColor = 'orange';
 	_echoTradingTableItem($strColor, '涨停', number_format($fPrice * 1.1, $iPrecision, '.', ''), '', $ref, $fEstPrice, $fEstPrice2, $fEstPrice3, $callback);
@@ -80,9 +84,11 @@ function _echoTradingParagraph($str, $arColumn, $ref, $fEstPrice = false, $fEstP
 {
 	if (_checkTradingQuantity($ref))	return;
 
-	EchoTableParagraphBegin($arColumn, 'trading', $str);
-    _echoTradingTableData($ref, $fEstPrice, $fEstPrice2, $fEstPrice3, $callback);
-    EchoTableParagraphEnd();
+	if (EchoTableParagraphBegin($arColumn, 'trading', $str))
+	{
+	    _echoTradingTableData($ref, $fEstPrice, $fEstPrice2, $fEstPrice3, $callback);
+    	EchoTableParagraphEnd();
+	}
 }
 
 function _getTradingParagraphStr($ref, $arColumn)
@@ -138,7 +144,13 @@ function EchoFundTradingParagraph($fund, $callback = false)
     }
     
     $strSymbol = $ref->GetSymbol();
-    if (in_arrayXopQdii($strSymbol))	$str .= ' '.GetRotationTradingLink($strSymbol);
+    if (in_arrayXopQdii($strSymbol) || 
+		in_arrayXbiQdii($strSymbol) ||
+		in_arraySpyQdii($strSymbol) ||
+		in_arrayQqqMatch($strSymbol))
+	{
+		$str .= ' '.GetRotationTradingLink($strSymbol);
+	}	
 	
     _echoTradingParagraph($str, $arColumn, $ref, $fOfficial, $fFair, $fRealtime, $callback); 
 }
@@ -180,5 +192,6 @@ function EchoTradingParagraph($ref, $ah_ref = false, $adr_ref = false)
     }
     _echoTradingParagraph($str, $arColumn, $ref, $fValH, $fValAdr); 
 }
+
 
 ?>

@@ -49,12 +49,18 @@ function TableColumnGetEst()
 	return $col->GetDisplay();
 }
 
-class TableColumnOfficalEst extends TableColumnEst
+class TableColumnOfficialEst extends TableColumnEst
 {
 	public function __construct()
 	{
         parent::__construct(STOCK_DISP_OFFICIAL);
 	}
+}
+
+function TableColumnGetOfficialEst()
+{
+	$col = new TableColumnOfficialEst();
+	return $col->GetDisplay();
 }
 
 class TableColumnFairEst extends TableColumnEst
@@ -65,12 +71,25 @@ class TableColumnFairEst extends TableColumnEst
 	}
 }
 
+function TableColumnGetFairEst()
+{
+	$col = new TableColumnFairEst();
+	return $col->GetDisplay();
+}
+
+
 class TableColumnRealtimeEst extends TableColumnEst
 {
 	public function __construct()
 	{
         parent::__construct(STOCK_DISP_REALTIME);
 	}
+}
+
+function TableColumnGetRealtimeEst()
+{
+	$col = new TableColumnRealtimeEst();
+	return $col->GetDisplay();
 }
 
 class TableColumnHedge extends TableColumn
@@ -131,7 +150,7 @@ class TableColumnPosition extends TableColumn
 {
 	public function __construct()
 	{
-        parent::__construct(STOCK_DISP_POSITION, 70);
+        parent::__construct(STOCK_DISP_POSITION, 60);
 	}
 }
 
@@ -213,6 +232,15 @@ function TableColumnGetRemark()
 	return $col->GetDisplay();
 }
 
+class TableColumnSettlePrice extends TableColumn
+{
+	public function __construct($strPrefix = false, $iWidth = 90)
+	{
+        parent::__construct('结算价', $iWidth, 'blue', $strPrefix);
+	}
+}
+
+
 class TableColumnShare extends TableColumn
 {
 	public function __construct()
@@ -287,6 +315,14 @@ class TableColumnUSD extends TableColumn
 	{
         parent::__construct('美元$', 100, 'blue', $strPrefix);
 	}
+}
+
+function RefGetTableColumnNetValue($ref)
+{
+	$strStockDisplay = TableColumnGetStock($ref);
+	if ($ref->CountNetValue() > 0)			return new TableColumnNetValue($strStockDisplay);
+	if ($ref->IsSinaFutureExceptGoldCN())	return new TableColumnSettlePrice($strStockDisplay);
+	return new TableColumnPrice($strStockDisplay, 90);						   	   
 }
 
 ?>

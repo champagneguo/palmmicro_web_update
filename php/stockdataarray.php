@@ -1,98 +1,140 @@
 <?php
 require_once('stock.php');
 
-function _addIndexArray(&$ar, $strIndex, $strEtf, $strDate, $cal_sql)
+function _addIndexArray(&$ar, $strIndex, $strSymbol, $strDate, $sql, $cal_sql, $net_sql, $pos_sql)
 {
-	if (!isset($ar[$strEtf]))
+	if (!isset($ar[$strSymbol]))
 	{
-		$arData = array();
-		
-		$strEtfId = SqlGetStockId($strEtf);
-		$arData['calibration'] = $cal_sql->GetCloseFrom($strEtfId, $strDate);
-		$arData['netvalue'] = SqlGetNetValueByDate($strEtfId, $strDate);
+		$strStockId = $sql->GetId($strSymbol);
+    	$record = $cal_sql->GetRecordFromDate($strStockId, $strDate);
+		$strDate = $record['date'];
 
-		$pos_sql = GetPositionSql();
-		$arData['position'] = strval($pos_sql->ReadVal($strEtfId));
-
+		$arData = [];
+		$arData['position'] = strval($pos_sql->ReadPos($strStockId));
+		$arData['calibration'] = rtrim0($record['close']);
+		$arData['date'] = $strDate;
+		$arData['netvalue'] = rtrim0($net_sql->GetClose($strStockId, $strDate));
 		$arData['symbol_hedge'] = $strIndex;
-		$ar[$strEtf] = $arData;
+		$ar[$strSymbol] = $arData;
 	}
 }
 
-function GetStockDataArray($strSymbols)
+function _addFundPairArray(&$ar, $strSymbol, $sql, $cal_sql, $last_sql, $pair_sql, $pos_sql)
 {
+	if (!isset($ar[$strSymbol]))
+	{
+		$strStockId = $sql->GetId($strSymbol);
+       	if ($strPairId = $pair_sql->ReadPair($strStockId))	
+        {
+			$arData = [];
+			$arData['position'] = strval($pos_sql->ReadPos($strStockId));
+			$arData['calibration'] = rtrim0($cal_sql->GetCloseNow($strStockId));
+			$arData['date'] = $cal_sql->GetDateNow($strStockId);
+			$arData['netvalue'] = strval($last_sql->ReadVal($strStockId));
+			$arData['symbol_hedge'] = $sql->GetStockSymbol($strPairId);
+			$ar[$strSymbol] = $arData;
+		}
+	}
+}
+
+function GetStockDataArray($strSymbols, $arRange = false)
+{
+	DebugString(__FUNCTION__.' '.$strSymbols);
 	InitGlobalStockSql();
     $arSymbol = GetInputSymbolArray(SqlCleanString($strSymbols));
+	if ($arRange)	$arSymbol = array_intersect($arRange, $arSymbol);
     StockPrefetchArrayExtendedData($arSymbol);
 	
-	$ar = array();
+	$sql = GetStockSql();
+	$cal_sql = GetCalibrationSql();
+	$last_sql = new LastCalibrationSql();
+	$net_sql = GetNetValueHistorySql();
+	$pair_sql = GetFundPairSql();
+	$pos_sql = GetPositionSql();
+	$ar = [];
 	foreach ($arSymbol as $strSymbol)
 	{
-		$arData = array();
+		$arData = [];
 		$ref = StockGetReference($strSymbol);
 		if ($ref->IsSymbolA())
 		{
 			if ($ref->IsFundA())
 			{
 				$fund_ref = StockGetFundReference($strSymbol);
+				$arData['position'] = strval($fund_ref->GetPosition());
+				$strOfficialDate = $fund_ref->GetOfficialDate();
+				$arData['est_date'] = $strOfficialDate;
+				if ($cny_ref = $fund_ref->GetCnyRef())
+				{
+					$arData['CNYest'] = rtrim0($cny_ref->GetClose($strOfficialDate));
+					if ($fund_ref->IsLofA())	$arData['CNY'] = $cny_ref->GetPrice();
+				}
+				
 				$strStockId = $ref->GetStockId();
-				$cal_sql = GetCalibrationSql();
 				if ($record = $cal_sql->GetRecordNow($strStockId))
 				{
-					$arData['calibration'] = $record['close'];
+					$arData['calibration'] = rtrim0($record['close']);
 					$strDate = $record['date'];
-					$arData['netvalue'] = SqlGetNetValueByDate($strStockId, $strDate);
+					$arData['date'] = $strDate;
+					$arData['netvalue'] = rtrim0($net_sql->GetClose($strStockId, $strDate));
 				
+					$est_ref = false;
 					if (method_exists($fund_ref, 'GetEstRef'))
 					{
-						$cny_ref = $fund_ref->GetForexRef();
 						if ($est_ref = $fund_ref->GetEstRef())
 						{
 							$strIndex = $est_ref->GetSymbol();
 							if ($strEtf = GetLeverageHedgeSymbol($strSymbol))
 							{
-								_addIndexArray($ar, $strIndex, $strEtf, $strDate, $cal_sql);
+								_addIndexArray($ar, $strIndex, $strEtf, $strDate, $sql, $cal_sql, $net_sql, $pos_sql);
+								_addFundPairArray($ar, $strIndex, $sql, $cal_sql, $last_sql, $pair_sql, $pos_sql);
 								$strIndex = $strEtf;
 							}
 						}
 					}
 					else
 					{
-						$cny_ref = $fund_ref->GetCnyRef();
-						if ($pair_ref = $fund_ref->GetPairRef())
+						if ($est_ref = $fund_ref->GetPairRef())
 						{
-							$strIndex = $pair_ref->GetSymbol();
+							$strIndex = $est_ref->GetSymbol();
 						}
 					}
+					if ($est_ref)
+					{
+						if ($fVal = $est_ref->GetNetValue($strOfficialDate))	$arData['est_netvalue'] = strval($fVal);
+					} 
 					$arData['symbol_hedge'] = $strIndex;
+					$arData['hedge'] = strval(round(GetStockHedge($strSymbol, $strStockId), FLOAT_PRECISION));
 				}
 				else
 				{
-					$cny_ref = $fund_ref->GetCnyRef();
-					$arData['netvalue'] = $fund_ref->GetNetValueString();
 					$strDate = $fund_ref->GetHoldingsDate();
-					$arData['CNYholdings'] = $cny_ref->GetClose($strDate);
+					$arData['date'] = $strDate;
+					$arData['netvalue'] = rtrim0($fund_ref->GetNetValueString());
+					$arData['CNYholdings'] = rtrim0($cny_ref->GetClose($strDate));
 
-					$arSymbolHedge = array();
-					$sql = GetStockSql();
+					$arSymbolHedge = [];
 					$his_sql = GetStockHistorySql();
 					foreach ($fund_ref->GetHoldingsRatioArray() as $strHoldingId => $strRatio)
 					{	
-						$arHolding = array();
+						$arHolding = [];
 						$arHolding['ratio'] = $strRatio;
-						$arHolding['price'] = $his_sql->GetClose($strHoldingId, $strDate);
+						$arHolding['price'] = rtrim0($his_sql->GetClose($strHoldingId, $strDate));
+						if ($strOfficial = $his_sql->GetAdjClose($strHoldingId, $strOfficialDate))	$arHolding['est_price'] = rtrim0($strOfficial);
 						$strHoldingSymbol = $sql->GetStockSymbol($strHoldingId);
 						$arSymbolHedge[$strHoldingSymbol] = $arHolding;
+						if (str_starts_with($strHoldingSymbol, YAHOO_INDEX_CHAR) === false)
+						{
+							_addFundPairArray($ar, $strHoldingSymbol, $sql, $cal_sql, $last_sql, $pair_sql, $pos_sql);
+						}
 					}
 					if (count($arSymbolHedge) > 0)	$arData['symbol_hedge'] = $arSymbolHedge;
 				}
-				$arData['CNY'] = $cny_ref ? $cny_ref->GetPrice() : '1.0';
-				$arData['position'] = strval($fund_ref->GetPosition());
 			}
 		}
 		$ar[$strSymbol] = $arData;
     }
-    DebugPrint($ar);
+	//DebugPrint($ar);
     return $ar;
 }
 

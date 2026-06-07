@@ -41,6 +41,11 @@ function _getStockOptionDate($strSubmit, $ref, $strSymbol)
 		if ($strDate = $date_sql->ReadDate($strStockId))		return $strDate;
 	 	return $strYMD;
 
+	case STOCK_OPTION_REPORT:
+		$quarter_sql = new QuarterReportSql();
+		if ($strDate = $quarter_sql->GetDateNow($strStockId))		return $strDate;
+	 	return $strYMD;
+
 	case STOCK_OPTION_PREMIUM:
 		$premium_sql = new FuturePremiumSql();
 		if ($strDate = $premium_sql->GetDateNow($strStockId))		return $strDate;
@@ -131,7 +136,7 @@ function _getStockOptionAdr($strSymbol)
 	return 'ADR/100';
 }
 
-function _getStockOptionFund($strSymbol)
+function _getStockOptionFund($ref, $strSymbol)
 {
 	$pos_sql = GetPositionSql();
 	if ($fPos = $pos_sql->ReadVal(SqlGetStockId($strSymbol)))	$strPos = strval($fPos);
@@ -144,7 +149,9 @@ function _getStockOptionFund($strSymbol)
 		return $strIndex;
 	}
 	if ($fPos)	return $strPos;
-	return 'INDEX*1';
+	$str = 'INDEX*';
+	$str .= $ref->IsLofA() ? '0.95' : '1';
+	return $str;
 }
 
 function _getStockOptionEmaDays($strStockId, $strDate, $iDays)
@@ -218,21 +225,25 @@ function _getStockOptionCalibration($strSymbol, $strDate)
 		$est_ref = new MyStockReference('znb_SENSEX');
 	}
 
-	return $est_ref ? _getBestEstNetValue($est_ref, $strDate) : '对方净值';
+	return $est_ref ? _getBestEstNetValue($est_ref, $strDate) : '对方'.STOCK_DISP_NETVALUE;
 }
 
 function _getStockOptionHoldings($strStockId)
 {
-	$sql = GetHoldingsSql();
-	$ar = $sql->GetHoldingsArray($strStockId);
-	if (count($ar) == 0)			return 'STOCK1*10.1;STOCK2*20.2;STOCK3*30.3;STOCK4*39.4';
+	$pos_sql = GetPositionSql();
+	$fPos = $pos_sql->ReadPos($strStockId);
 
-	$str = '';
-	foreach ($ar as $strStockId => $strRatio)
+	$holdings_sql = GetHoldingsSql();
+	$ar = $holdings_sql->GetHoldingsArray($strStockId);
+
+	$arSymbolRatio = array();
+	foreach ($ar as $strHoldingId => $strRatio)
 	{
-		$str .= SqlGetStockSymbol($strStockId).'*'.rtrim0($strRatio).';';
+		$strSymbol = SqlGetStockSymbol($strHoldingId);
+		$arSymbolRatio[$strSymbol] = strval(round(floatval($strRatio) * $fPos, 2));
 	}
-	return rtrim($str, ';');
+	$str = DebugEncode($arSymbolRatio);
+	return $str;
 }
 
 function _getStockOptionVal($strSubmit, $strLoginId, $ref, $strSymbol, $strDate)
@@ -265,7 +276,7 @@ function _getStockOptionVal($strSubmit, $strLoginId, $ref, $strSymbol, $strDate)
 		return _getStockOptionEma($strStockId, $strDate);
 
 	case STOCK_OPTION_FUND:
-		return _getStockOptionFund($strSymbol);
+		return _getStockOptionFund($ref, $strSymbol);
 
 	case STOCK_OPTION_HA:
 		return _getStockOptionHa($strSymbol);
@@ -275,6 +286,11 @@ function _getStockOptionVal($strSubmit, $strLoginId, $ref, $strSymbol, $strDate)
 
 	case STOCK_OPTION_NETVALUE:
 		return _getStockOptionNetValue($ref, $strSymbol, $strStockId, $strDate);
+
+	case STOCK_OPTION_REPORT:
+		$quarter_sql = new QuarterReportSql();
+		if ($strClose = $quarter_sql->GetCloseNow($strStockId))		return $strClose;
+		return '"AAA":"60","BBB":"40"';
 
 	case STOCK_OPTION_PREMIUM:
 		return _getStockOptionPremium($strStockId, $strDate);
@@ -308,13 +324,13 @@ function _getStockOptionMemo($strSubmit)
 		return '股票收盘后的第2天修改才会生效，同时删除以往全部EMA记录。';
 
 	case STOCK_OPTION_FUND:
-		return '输入INDEX*0删除对应关系和全部'.CALIBRATION_HISTORY_DISPLAY.'，输入0删除仓位。';
+		return '输入INDEX*0删除对应关系和全部'.CALIBRATION_HISTORY_DISPLAY.'，输入0删除'.STOCK_DISP_POSITION.'。';
 
 	case STOCK_OPTION_HA:
 		return '清空输入删除对应A股。';
 
 	case STOCK_OPTION_HOLDINGS:
-		return '输入STOCK*0删除对应基金持仓，用;号间隔多个持仓品种。';
+		return '清空输入删除对应'.HOLDINGS_DISPLAY;
 		
 	case STOCK_OPTION_NETVALUE:
 		return '清空输入删除对应日期净值。';
@@ -322,6 +338,9 @@ function _getStockOptionMemo($strSubmit)
 	case STOCK_OPTION_PREMIUM:
 		return '期货升水年化百分比';
 		
+	case STOCK_OPTION_REPORT:
+	 	return '清空输入删除对应日期季报数据。';
+
 	case STOCK_OPTION_SHARE_DIFF:
 		return '清空输入删除对应日期新增。';
 		

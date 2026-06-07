@@ -20,16 +20,18 @@ function _getAccountToolTag($strItem)
 
 function _echo20100905()
 {
+	$strNewLine = GetHtmlNewLine();
+
 	$strAR1688 = GetInternalLink('/ar1688/indexcn.html', 'AR1688');
 	$strYahoo = GetInternalLink('/res/translationcn.html#webhosting', 'Yahoo网站服务');
 	$strPA6488 = GetInternalLink('/pa6488/indexcn.html', 'PA6488');
 	$strCamMan = GetInternalLink('/pa6488/software/cammancn.html', 'CamMan');
 	$strImage = ImgPhpBest();
 	$strQuote = GetBlockquoteElement('女神：你能让这个论坛的人都吵起来，我今晚就跟你走。'
-										.'<br />程序猿：PHP是世界上最好的编程语言！'
-										.'<br />论坛炸锅了，各种吵架。'
-										.'<br />女神：服了你了，我们走吧，你想干啥都行。'
-										.'<br />程序猿：今天不行，我一定要说服他们，PHP是世界上最好的编程语言。');
+									 .$strNewLine.'程序猿：PHP是世界上最好的编程语言！'
+									 .$strNewLine.'论坛炸锅了，各种吵架。'
+									 .$strNewLine.'女神：服了你了，我们走吧，你想干啥都行。'
+									 .$strNewLine.'程序猿：今天不行，我一定要说服他们，PHP是世界上最好的编程语言。');
 	
 	EchoBlogDate();
     echo <<<END
@@ -95,7 +97,7 @@ function _echoPage20170319($strPage)
 <p>2017年3月9日
 <br />因为偶然注意到CL和USO{$strCalibration}的数据异乎寻常的多，让我发现了从去年11月中旬开始，就有一个网络爬虫从相连的两个IP地址以每秒两次的频率自动爬{$strSZ162411}等四个页面，持续爬了快四个月。
 在惊讶之余，我的第一反应是每个月9.99美元跑PHP代码的Yahoo网站服务太值了，处理如此辛勤的爬虫，竟然没有让我这种最常用用户感觉到任何性能上的变化，看来未来即使正常访问量提高100倍都能应付过来。
-其实我估值软件每分钟才访问一次新浪股票数据，所以爬虫每秒都来爬是没有任何意义的，每分钟来爬一次足够了。
+其实我软件每分钟才访问一次新浪股票数据，所以爬虫每秒都来爬是没有任何意义的，每分钟来爬一次足够了。
 <br />我的第二反应，是赶快加了一个对单个IP地址访问Palmmicro.com的次数{$strVisitor}，每当访问次数累计到1000次就强制要求登录一次。爬虫很快就被暂时挡在了数据之外，不过这也会在以后给正常访问的常用用户带来一点小麻烦。 
 <br />同时我很清醒的认识到，为了克服我设置的这个小障碍，爬虫要实现自动登录其实是很容易的。另外即使是目前这种状态，依旧有每秒两次的访问压在登录页面上，一样给服务器带来了不必要的额外压力。
 <br />十多年前当我在{$strPA1688}上做H.323的时候，曾经费尽心力从{$strIpInfo}这种类似网站查询设备所在的公网IP地址，留下了很坎坷的回忆。
@@ -153,7 +155,8 @@ function _echoPage20171226($strPage)
 <br />{$strStrpos}
 <br />总是热衷于代码优化，我马上如获至宝当即改了几十个地方，却发现有些像{$strErrorStrpos}的代码变得不工作了。原因是会返回位置0，这时候要写成{$strCorrectStrpos}，才跟原来{$strCorrectStrstr}代码效果一致。
 <br />不过这不是我碰到的最深的PHP坑。最坑人的PHP函数是{$strArray_merge}，它在全数字下标的时候居然会把所有数字下标从头开始排序！
-这时候要把{$strErrorArray_merge}简单写成{$strCorrectArray_merge}。反过来，加法也不能随便写，无下标数组写加法也会出错！
+这时候要把{$strErrorArray_merge}简单写成{$strCorrectArray_merge}。
+<br />反过来，加法也不能随便写，无下标数组写加法也会出错！因为这时候实际下标是数字0、1、2、3，写加法的时候实际下标相同的后面被加数据就丢了。
 </p>
 END;
 }

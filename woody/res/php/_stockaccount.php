@@ -7,10 +7,23 @@ class StockAccount extends TitleAccount
     var $group_sql;
     var $ref = false;		// MysqlReference class
     
-    public function __construct($strQueryItem = false, $arLoginTitle = false) 
+    public function __construct($strQueryItem = false) 
     {
-        parent::__construct($strQueryItem, $arLoginTitle);
-        
+        parent::__construct($strQueryItem,
+							['ahhistory',
+							 'calibrationhistory',
+							 'debug',
+							 'editstockgroup',
+							 'editstocktransaction',
+							 'exhaustiveholdings',
+							 'fundhistory',
+							 'fundposition',
+							 'fundshare',
+							 'netvalueclose',
+							 'netvaluehistory',
+							 'stockhistory',
+							 'thanousparadox',
+							]);
         $this->strName = StockGetSymbol($this->GetPage());
 	    $this->group_sql = new StockGroupSql();
     }
@@ -202,9 +215,19 @@ END;
     	$strUSDCNY = $uscny_ref ? $uscny_ref->GetPrice() : false;
     	$strHKDCNY = $hkcny_ref ? $hkcny_ref->GetPrice() : false;
 	
-    	_EchoMoneyParagraphBegin($arGroup);
-    	foreach ($arGroup as $group)	_EchoMoneyGroupData($this, $group, $strUSDCNY, $strHKDCNY);
-    	EchoTableParagraphEnd();
+    	$strMoney = '单一货币';
+		$profit_col = new TableColumnProfit();
+		if (EchoTableParagraphBegin(array(new TableColumnGroupName(),
+										  new TableColumnProfit(DISP_ALL_CN),
+										  new TableColumnHolding(DISP_ALL_CN),
+										  new TableColumnProfit($strMoney),
+										  new TableColumnHolding($strMoney),
+										  new TableColumnTest()
+										 ), 'money', GetMyStockGroupLink().$profit_col->GetDisplay()))
+		{
+			foreach ($arGroup as $group)	_EchoMoneyGroupData($this, $group, $strUSDCNY, $strHKDCNY);
+    		EchoTableParagraphEnd();
+		}
     }
 
     function EchoMoneyParagraph($group, $uscny_ref = false, $hkcny_ref = false)
