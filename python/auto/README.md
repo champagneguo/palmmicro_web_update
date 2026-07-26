@@ -49,7 +49,7 @@ python/auto/
 ├── Palmmicro.EBK        # 通达信自定义板块文件
 ├── redfox.png           # 应用图标
 ├── _mytoken.py          # API Token (不入库，需自行创建)
-└── start.bat            # 一键启动脚本
+└── start.ps1            # 一键启动脚本 (PowerShell)
 ```
 
 ## 首次部署
@@ -90,7 +90,7 @@ sys.path.append('D:/new_tdx64/PYPlugins/user')
 
 ### 方式一：双击启动（推荐）
 
-直接双击 `python/auto/start.bat`，脚本会自动：
+右键 `python/auto/start.ps1` → "使用 PowerShell 运行"，脚本会自动：
 1. 关闭旧进程（dtale 端口 40005 + Palmmicro 窗口）
 2. 检查通达信和 IBKR 环境
 3. 启动服务
