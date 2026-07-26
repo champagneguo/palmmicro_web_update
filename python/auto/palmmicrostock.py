@@ -437,7 +437,7 @@ class TdxStock(PalmmicroStock):
 
 	@classmethod
 	def TqInit(cls, strBlockCode: str = 'PLMM'):
-		sys.path.append('C:/new_tdx64/PYPlugins/user')
+		sys.path.append('D:/new_tdx64/PYPlugins/user')
 		try:
 			from tqcenter import tq	# type: ignore
 			tq.initialize(__file__)
