@@ -1,0 +1,5 @@
+pandas==3.0.1
+requests==2.32.5
+dtale==3.22.0
+websockets==17.0.1
+ibapi==9.81.1.post1
