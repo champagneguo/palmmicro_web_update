@@ -9,6 +9,7 @@ from tkinter import ttk, PhotoImage
 from palmmicrostock import PalmmicroStock, SinaStock, TdxStock, IbkrStock
 from palmmicroapi import PalmmicroAPI, PalmmicroDataFrame
 from palmmicrosocket import PalmmicroSocket
+from dashboard import Dashboard
 
 class PalmmicroApp:
 	def __init__(self, root):
@@ -91,6 +92,9 @@ class PalmmicroApp:
 							reaper_on = False
 					   	   )
 		self.d.open_browser()
+		# 启动 Web Dashboard :40006
+		self.dashboard = Dashboard(self.pdf)
+		self.dashboard.start()
 		return df
 	
 	def setup_ui(self):
@@ -241,6 +245,7 @@ class PalmmicroApp:
 		# 在这里可以添加需要释放的资源例如：关闭数据库连接、保存配置文件、释放大对象等
 		TdxStock.TqDebug('释放资源...')
 		#self.sender.stop()
+		self.dashboard.stop()
 		IbkrStock.FreeAPI()
 		SinaStock.TaskFree()
 		#TdxStock.TqFree()

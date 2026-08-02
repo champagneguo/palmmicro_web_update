@@ -28,6 +28,15 @@ if ($port40005) {
     }
 }
 
+# 关闭占用端口 40006 的进程 (dashboard)
+$port40006 = Get-NetTCPConnection -LocalPort 40006 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
+if ($port40006) {
+    foreach ($p in $port40006) {
+        Write-Host "  终止 dashboard 进程 PID:$p"
+        Stop-Process -Id $p -Force -ErrorAction SilentlyContinue
+    }
+}
+
 # 关闭 Palmmicro 窗口进程
 $palmmicro = Get-Process -Name python -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq "Palmmicro" }
 if ($palmmicro) {
@@ -62,6 +71,7 @@ Write-Host ""
 Write-Host "[4/4] 启动 PalmmicroApp..." -ForegroundColor Yellow
 Write-Host "  - TKinter GUI 窗口"
 Write-Host "  - dtale Web 面板: http://127.0.0.1:40005"
+Write-Host "  - Dashboard: http://127.0.0.1:40006"
 Write-Host ""
 
 $env:PYTHONIOENCODING = "utf-8"
