@@ -1,6 +1,8 @@
 import json
+import os
 import threading
 import time
+from urllib.parse import urlparse, parse_qs
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from datetime import datetime, timezone, timedelta
 
@@ -90,6 +92,7 @@ td.dir.sell { color:var(--red); }
 var allRows = [];
 var sortKey = '对冲代码';
 var sortDir = 'asc';
+var TOKEN = new URLSearchParams(location.search).get('token') || '';
 var COLUMNS = [
   {key:'代码',      type:'text'},
   {key:'对冲代码',   type:'text'},
@@ -178,7 +181,12 @@ function setSort(key) {
 
 async function refresh() {
   try {
-    var res = await fetch('/api/data');
+    var url = '/api/data' + (TOKEN ? '?token=' + encodeURIComponent(TOKEN) : '');
+    var res = await fetch(url);
+    if (res.status === 401) {
+      document.getElementById('main').innerHTML = '<div class="empty">⚠ 访问令牌无效</div>';
+      return;
+    }
     var data = await res.json();
     if (data.error) throw new Error(data.error);
     allRows = data;
@@ -195,10 +203,12 @@ setInterval(refresh, 3000);
 </body>
 </html>'''
 
-    def __init__(self, pdf, host='0.0.0.0', port=40006):
+    def __init__(self, pdf, host='0.0.0.0', port=40006, token=None):
         self.pdf = pdf
         self.host = host
         self.port = port
+        # 访问令牌: 优先用显式参数, 否则从环境变量读取; 空表示不鉴权(仅本地)
+        self.token = token if token is not None else os.environ.get('DASHBOARD_TOKEN', '')
         self.server = None
         self.thread = None
         # 数据缓存: 多页面共享, 避免每次请求都重算
@@ -215,8 +225,24 @@ setInterval(refresh, 3000);
             def log_message(self, format, *args):
                 pass  # 静默日志
 
+            def _check_auth(self):
+                """返回 True 表示通过校验; False 表示未授权(已发送401)"""
+                if not dashboard.token:
+                    return True
+                q = parse_qs(urlparse(self.path).query)
+                provided = q.get('token', [''])[0]
+                if provided == dashboard.token:
+                    return True
+                self.send_response(401)
+                self.send_header('Content-Type', 'application/json; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': 'unauthorized'}).encode('utf-8'))
+                return False
+
             def do_GET(self):
-                if self.path == '/api/data':
+                if not self._check_auth():
+                    return
+                if self.path.split('?')[0] == '/api/data':
                     self._serve_data()
                 else:
                     self._serve_html()
