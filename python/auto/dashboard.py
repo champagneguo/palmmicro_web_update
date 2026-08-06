@@ -14,21 +14,37 @@ class Dashboard:
     # 代码 → 中文名 (A股基金)
     SYMBOL_NAMES = {
         'SH501018': '南方原油',
+        'SZ159518': '法国ETF',
+        'SZ159612': '标普500ETF',
+        'SZ160125': '南方香港LOF',
         'SZ160719': '嘉实黄金',
         'SZ160723': '嘉实原油',
         'SZ161116': '黄金主题',
+        'SZ161125': '标普500LOF',
         'SZ161129': '原油易方达',
         'SZ161226': '国投白银',
+        'SZ162411': '华宝油气',
         'SZ164701': '黄金LOF',
         'SZ164824': '印度基金',
         'SZ165513': '中信保诚商品',
     }
     # 对冲代码 → 中文名 (海外ETF/期货)
     HEDGE_NAMES = {
-        'USO': '美国原油ETF',
+        'DRIP': '标普油气2倍做空ETF',
         'GLD': '黄金ETF',
+        'GUSH': '标普油气2倍做多ETF',
         'INDA': '印度ETF',
         'nf_AG0': '沪银主力',
+        'QQQ': '纳指100ETF',
+        'SLV': '白银ETF',
+        'SPY': '标普500ETF',
+        'USO': '美国原油ETF',
+        'XOP': '油气勘探ETF',
+        'hf_CL': '原油期货(小)',
+        'hf_ES': '标普500期货(小)',
+        'hf_GC': '黄金期货(小)',
+        'hf_NQ': '纳指期货(小)',
+        'hf_SI': '白银期货',
     }
 
     HTML = r'''<!DOCTYPE html>
@@ -199,11 +215,25 @@ async function refresh() {
 }
 refresh();
 setInterval(refresh, 3000);
+
+// ngrok 免费版提示: 如果其他电脑打开是空白页, 说明被 ngrok 拦截页挡住了
+// 请在空白页按 F12 打开控制台, 执行下面这行后刷新:
+// document.cookie = 'ngrok-skip-browser-warning=1; path=/'; location.reload();
+// 推荐改用 cloudflared: winget install Cloudflare.cloudflared
+(function() {
+  if (location.hostname.includes('ngrok-free')) {
+    var banner = document.createElement('div');
+    banner.style.cssText = 'background:#fff3cd;color:#856404;padding:8px 16px;font-size:12px;text-align:center;border-bottom:1px solid #ffc107;';
+    banner.innerHTML = '桌面浏览器空白? <a href="https://downloads.cloudflared.com/" target="_blank">安装cloudflared</a> 替代ngrok, 或在空白页F12控制台执行: <code>document.cookie="ngrok-skip-browser-warning=1;path=/";location.reload()</code>';
+    document.body.insertBefore(banner, document.body.firstChild);
+  }
+})();
 </script>
 </body>
 </html>'''
 
-    def __init__(self, pdf, host='0.0.0.0', port=40006, token=None):
+    def __init__(self, pdf, host='0.0.0.0', port=40006, token=None,
+                 extra_symbol_names=None, extra_hedge_names=None):
         self.pdf = pdf
         self.host = host
         self.port = port
@@ -216,6 +246,13 @@ setInterval(refresh, 3000);
         self._cache_body = None
         self._cache_time = 0.0
         self.CACHE_TTL = 1.0  # 秒
+        # 合并额外传入的中文名映射（可运行时动态扩展）
+        self.symbol_names = dict(self.SYMBOL_NAMES)
+        if extra_symbol_names:
+            self.symbol_names.update(extra_symbol_names)
+        self.hedge_names = dict(self.HEDGE_NAMES)
+        if extra_hedge_names:
+            self.hedge_names.update(extra_hedge_names)
 
     def start(self):
         """启动 HTTP 服务器（后台线程）"""
@@ -263,9 +300,9 @@ setInterval(refresh, 3000);
                     df = df.fillna('')
                     # 追加简短中文名: 代码(中文名)
                     df['代码'] = df['代码'].apply(
-                        lambda x: f"{x}({dashboard.SYMBOL_NAMES[x]})" if x in dashboard.SYMBOL_NAMES else str(x))
+                        lambda x: f"{x}({dashboard.symbol_names[x]})" if x in dashboard.symbol_names else str(x))
                     df['对冲代码'] = df['对冲代码'].apply(
-                        lambda x: f"{x}({dashboard.HEDGE_NAMES[x]})" if x in dashboard.HEDGE_NAMES else str(x))
+                        lambda x: f"{x}({dashboard.hedge_names[x]})" if x in dashboard.hedge_names else str(x))
                     data = df.to_dict(orient='records')
                     body = json.dumps(data, ensure_ascii=False, default=str).encode('utf-8')
                 except Exception as e:
