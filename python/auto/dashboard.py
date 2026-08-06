@@ -14,18 +14,27 @@ class Dashboard:
     # 代码 → 中文名 (A股基金)
     SYMBOL_NAMES = {
         'SH501018': '南方原油',
-        'SZ159518': '法国ETF',
+        'SH513350': '标普油气ETF富国',
+        'SZ159502': '标普生科',
+        'SZ159518': '标普油气',
         'SZ159612': '标普500ETF',
         'SZ160125': '南方香港LOF',
         'SZ160719': '嘉实黄金',
         'SZ160723': '嘉实原油',
         'SZ161116': '黄金主题',
         'SZ161125': '标普500LOF',
+        'SZ161126': '标普医药',
+        'SZ161127': '标普生物',
         'SZ161129': '原油易方达',
+        'SZ161130': '纳指LOF',
         'SZ161226': '国投白银',
         'SZ162411': '华宝油气',
+        'SZ162415': '美国消费',
+        'SZ162719': '广发石油',
+        'SZ163208': '诺安油气',
         'SZ164701': '黄金LOF',
         'SZ164824': '印度基金',
+        'SZ164906': '中国互联',
         'SZ165513': '中信保诚商品',
     }
     # 对冲代码 → 中文名 (海外ETF/期货)
@@ -33,12 +42,18 @@ class Dashboard:
         'DRIP': '标普油气2倍做空ETF',
         'GLD': '黄金ETF',
         'GUSH': '标普油气2倍做多ETF',
+        'IEO': '美国油气勘探ETF',
         'INDA': '印度ETF',
+        'KWEB': '中概网络股ETF',
         'nf_AG0': '沪银主力',
         'QQQ': '纳指100ETF',
+        'RSPH': '标普医疗等权ETF',
         'SLV': '白银ETF',
         'SPY': '标普500ETF',
         'USO': '美国原油ETF',
+        'XBI': '生物科技股ETF',
+        'XLE': '能源ETF',
+        'XLY': '可选消费ETF',
         'XOP': '油气勘探ETF',
         'hf_CL': '原油期货(小)',
         'hf_ES': '标普500期货(小)',
@@ -88,6 +103,12 @@ td.dir.sell { color:var(--red); }
 .note-cell { white-space:normal; min-width:180px; max-width:400px; color:var(--muted); font-size:12px; }
 .empty { text-align:center; color:var(--muted); padding:60px; font-size:14px; }
 .footer { text-align:center; color:#8b949e; font-size:11px; margin-top:12px; }
+.filter-bar { display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+.filter-bar label { font-size:13px; font-weight:600; color:var(--muted); }
+.filter-bar select { padding:4px 8px; border:1px solid var(--border); border-radius:6px; font-size:13px; background:var(--card); color:var(--text); cursor:pointer; }
+.filter-bar select:focus { outline:2px solid #0969da; outline-offset:-1px; }
+.filter-badge { display:inline-block; font-size:11px; background:#ddf4ff; color:#0969da; border-radius:10px; padding:1px 8px; cursor:pointer; }
+.filter-badge.active { background:#0969da; color:#fff; }
 </style>
 </head>
 <body>
@@ -99,6 +120,13 @@ td.dir.sell { color:var(--red); }
     &nbsp;|&nbsp; <span id="sortHint">点击表头排序</span>
   </div>
 </div>
+<div class="filter-bar">
+  <label for="hedgeFilter">对冲代码:</label>
+  <select id="hedgeFilter" onchange="applyFilter(this.value)">
+    <option value="">全部</option>
+  </select>
+  <span id="filterCount" style="font-size:12px;color:var(--muted);"></span>
+</div>
 <div class="table-wrap">
   <div id="main"><div class="empty">加载中...</div></div>
 </div>
@@ -108,6 +136,7 @@ td.dir.sell { color:var(--red); }
 var allRows = [];
 var sortKey = '对冲代码';
 var sortDir = 'asc';
+var filterHedge = '';
 var TOKEN = new URLSearchParams(location.search).get('token') || '';
 var COLUMNS = [
   {key:'代码',      type:'text'},
@@ -146,9 +175,49 @@ function compareRows(a, b) {
   return sortDir === 'asc' ? cmp : -cmp;
 }
 
+function applyFilter(value) {
+  filterHedge = value;
+  var filtered = allRows;
+  if (filterHedge) {
+    filtered = allRows.filter(function(r) {
+      var code = String(r['对冲代码']||'').replace(/\(.*\)$/, '');
+      return code === filterHedge;
+    });
+  }
+  document.getElementById('filterCount').textContent = filterHedge ? '(筛选后 ' + filtered.length + ' / ' + allRows.length + ' 行)' : '';
+  renderTable();
+}
+
+function populateFilter() {
+  var sel = document.getElementById('hedgeFilter');
+  var selected = sel.value;
+  var seen = {};
+  var opts = ['<option value="">全部</option>'];
+  for (var i=0; i<allRows.length; i++) {
+    var raw = allRows[i]['对冲代码'];
+    // 提取纯代码 (去掉中文名后缀)
+    var code = String(raw||'').replace(/\(.*\)$/, '');
+    if (code && !seen[code]) {
+      seen[code] = true;
+      var selectedAttr = code === selected ? ' selected' : '';
+      opts.push('<option value="' + esc(code) + '"' + selectedAttr + '>' + esc(raw) + '</option>');
+    }
+  }
+  sel.innerHTML = opts.join('');
+}
+
 function renderTable() {
   var main = document.getElementById('main');
   var rows = allRows.slice().sort(compareRows);
+
+  // 按对冲代码筛选
+  if (filterHedge) {
+    rows = rows.filter(function(r) {
+      var raw = String(r['对冲代码']||'');
+      var code = raw.replace(/\(.*\)$/, '');
+      return code === filterHedge;
+    });
+  }
 
   if (!rows.length) {
     main.innerHTML = '<div class="empty">暂无数据</div>';
@@ -208,7 +277,17 @@ async function refresh() {
     allRows = data;
     document.getElementById('rowCount').textContent = allRows.length;
     document.getElementById('updateTime').textContent = new Date().toLocaleString('zh-CN', {hour12:false});
+    populateFilter();
     renderTable();
+    // 更新筛选计数
+    var filtered = allRows;
+    if (filterHedge) {
+      filtered = allRows.filter(function(r) {
+        var code = String(r['对冲代码']||'').replace(/\(.*\)$/, '');
+        return code === filterHedge;
+      });
+    }
+    document.getElementById('filterCount').textContent = filterHedge ? '(筛选后 ' + filtered.length + ' 行)' : '';
   } catch(e) {
     document.getElementById('main').innerHTML = '<div class="empty">连接失败，重试中...</div>';
   }
