@@ -88,9 +88,22 @@ Write-Host ""
 # === 启动公网隧道 ===
 Write-Host "[4/5] 启动公网隧道..." -ForegroundColor Yellow
 
-# 生成访问令牌 (随机32位)
-$chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-$token = -join ((1..32) | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] })
+# 访问令牌: 优先复用已保存的，否则随机生成并保存
+$tokenFile = "$PSScriptRoot\dashboard_token.txt"
+if (Test-Path $tokenFile) {
+    $token = (Get-Content $tokenFile -Raw).Trim()
+    if ($token.Length -eq 32) {
+        Write-Host "  复用已保存的访问令牌" -ForegroundColor DarkGray
+    } else {
+        $token = $null
+    }
+}
+if (-not $token) {
+    $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    $token = -join ((1..32) | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] })
+    $token | Out-File -FilePath $tokenFile -Encoding utf8 -NoNewline
+    Write-Host "  已生成新令牌，保存到: $tokenFile" -ForegroundColor DarkGray
+}
 # 通过环境变量传给 Dashboard
 $env:DASHBOARD_TOKEN = $token
 
@@ -183,8 +196,15 @@ if (-not $ngrokUrl) {
 }
 
 if ($ngrokUrl) {
-    Write-Host "  公网访问: ${ngrokUrl}?token=$token" -ForegroundColor Green
-    Write-Host "  访问令牌: $token" -ForegroundColor Green
+    $fullUrl = "${ngrokUrl}?token=$token"
+
+    # 保存完整 URL 到文件，方便查找
+    $urlFile = "$PSScriptRoot\dashboard_url.txt"
+    $fullUrl | Out-File -FilePath $urlFile -Encoding utf8 -NoNewline
+
+    Write-Host "  公网访问: $fullUrl" -ForegroundColor Green
+    Write-Host "  访问令牌: $token"
+    Write-Host "  (URL 已保存到: $urlFile)" -ForegroundColor DarkGray
 
     if ($tunnelType -eq 'ngrok') {
         Write-Host ""
