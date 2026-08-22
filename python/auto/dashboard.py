@@ -61,6 +61,12 @@ class Dashboard:
         'hf_NQ': '纳指期货(小)',
         'hf_SI': '白银期货',
     }
+    # 对冲代码分类 (用于下拉分组与筛选)
+    HEDGE_CATEGORIES = {
+        'XOP油气': ['DRIP', 'GUSH', 'IEO', 'USO', 'XLE', 'XOP', 'hf_CL'],
+        '黄金白银': ['GLD', 'SLV', 'nf_AG0', 'hf_GC', 'hf_SI'],
+        '其他': ['INDA', 'KWEB', 'QQQ', 'RSPH', 'SPY', 'XBI', 'XLY', 'hf_ES', 'hf_NQ'],
+    }
 
     HTML = r'''<!DOCTYPE html>
 <html lang="zh-CN">
@@ -121,6 +127,10 @@ td.dir.sell { color:var(--red); }
   </div>
 </div>
 <div class="filter-bar">
+  <label for="categoryFilter">大类:</label>
+  <select id="categoryFilter" onchange="applyCategory(this.value)">
+    <option value="">全部</option>
+  </select>
   <label for="hedgeFilter">对冲代码:</label>
   <select id="hedgeFilter" onchange="applyFilter(this.value)">
     <option value="">全部</option>
@@ -133,9 +143,13 @@ td.dir.sell { color:var(--red); }
 <div class="footer">每 3 秒自动刷新 · Palmmicro</div>
 
 <script>
+var HEDGE_NAMES = __HEDGE_NAMES_JSON__;
+var HEDGE_GROUPS = __HEDGE_GROUPS_JSON__;
+var CATEGORY_ORDER = Object.keys(HEDGE_GROUPS);
 var allRows = [];
 var sortKey = '对冲代码';
 var sortDir = 'asc';
+var filterCategory = '';
 var filterHedge = '';
 var TOKEN = new URLSearchParams(location.search).get('token') || '';
 var COLUMNS = [
@@ -175,33 +189,68 @@ function compareRows(a, b) {
   return sortDir === 'asc' ? cmp : -cmp;
 }
 
-function applyFilter(value) {
-  filterHedge = value;
-  var filtered = allRows;
-  if (filterHedge) {
-    filtered = allRows.filter(function(r) {
-      var code = String(r['对冲代码']||'').replace(/\(.*\)$/, '');
-      return code === filterHedge;
-    });
+function rowCode(row) {
+  return String(row['对冲代码'] || '').replace(/\(.*\)$/, '');
+}
+
+function rowMatches(row) {
+  var code = rowCode(row);
+  if (filterHedge) return code === filterHedge;
+  if (filterCategory) {
+    var codes = HEDGE_GROUPS[filterCategory] || [];
+    return codes.indexOf(code) >= 0;
   }
-  document.getElementById('filterCount').textContent = filterHedge ? '(筛选后 ' + filtered.length + ' / ' + allRows.length + ' 行)' : '';
+  return true;
+}
+
+function updateFilterCount() {
+  var filtered = allRows.filter(rowMatches);
+  document.getElementById('filterCount').textContent =
+    (filterCategory || filterHedge) ? '(筛选后 ' + filtered.length + ' / ' + allRows.length + ' 行)' : '';
+}
+
+function applyCategory(value) {
+  filterCategory = value;
+  filterHedge = '';  // 切换大类时重置具体对冲代码
+  populateFilter();
+  updateFilterCount();
   renderTable();
 }
 
-function populateFilter() {
-  var sel = document.getElementById('hedgeFilter');
-  var selected = sel.value;
-  var seen = {};
+function applyFilter(value) {
+  filterHedge = value;
+  updateFilterCount();
+  renderTable();
+}
+
+function populateCategoryFilter() {
+  var sel = document.getElementById('categoryFilter');
   var opts = ['<option value="">全部</option>'];
-  for (var i=0; i<allRows.length; i++) {
-    var raw = allRows[i]['对冲代码'];
-    // 提取纯代码 (去掉中文名后缀)
-    var code = String(raw||'').replace(/\(.*\)$/, '');
-    if (code && !seen[code]) {
-      seen[code] = true;
+  for (var i = 0; i < CATEGORY_ORDER.length; i++) {
+    var cat = CATEGORY_ORDER[i];
+    opts.push('<option value="' + esc(cat) + '">' + esc(cat) + '</option>');
+  }
+  sel.innerHTML = opts.join('');
+}
+
+function populateFilter() {
+  // 对冲代码静态列出并按大类分组 (不用等数据下载), 点击即可筛选
+  var sel = document.getElementById('hedgeFilter');
+  var selected = filterHedge;
+  var opts = ['<option value="">全部</option>'];
+  var cats = filterCategory ? [filterCategory] : CATEGORY_ORDER;
+  for (var i = 0; i < cats.length; i++) {
+    var cat = cats[i];
+    var codes = HEDGE_GROUPS[cat] || [];
+    opts.push('<optgroup label="' + esc(cat) + '">');
+    for (var j = 0; j < codes.length; j++) {
+      var code = codes[j];
+      if (!(code in HEDGE_NAMES)) continue;
+      var label = code + '(' + HEDGE_NAMES[code] + ')';
       var selectedAttr = code === selected ? ' selected' : '';
-      opts.push('<option value="' + esc(code) + '"' + selectedAttr + '>' + esc(raw) + '</option>');
+      opts.push('<option value="' + esc(code) + '"' + selectedAttr + '>' + esc(label) + '</option>');
     }
+    opts.push('</optgroup>');
   }
   sel.innerHTML = opts.join('');
 }
@@ -210,14 +259,8 @@ function renderTable() {
   var main = document.getElementById('main');
   var rows = allRows.slice().sort(compareRows);
 
-  // 按对冲代码筛选
-  if (filterHedge) {
-    rows = rows.filter(function(r) {
-      var raw = String(r['对冲代码']||'');
-      var code = raw.replace(/\(.*\)$/, '');
-      return code === filterHedge;
-    });
-  }
+  // 按大类/对冲代码筛选
+  rows = rows.filter(rowMatches);
 
   if (!rows.length) {
     main.innerHTML = '<div class="empty">暂无数据</div>';
@@ -277,21 +320,14 @@ async function refresh() {
     allRows = data;
     document.getElementById('rowCount').textContent = allRows.length;
     document.getElementById('updateTime').textContent = new Date().toLocaleString('zh-CN', {hour12:false});
-    populateFilter();
     renderTable();
-    // 更新筛选计数
-    var filtered = allRows;
-    if (filterHedge) {
-      filtered = allRows.filter(function(r) {
-        var code = String(r['对冲代码']||'').replace(/\(.*\)$/, '');
-        return code === filterHedge;
-      });
-    }
-    document.getElementById('filterCount').textContent = filterHedge ? '(筛选后 ' + filtered.length + ' 行)' : '';
+    updateFilterCount();
   } catch(e) {
     document.getElementById('main').innerHTML = '<div class="empty">连接失败，重试中...</div>';
   }
 }
+populateCategoryFilter();
+populateFilter();
 refresh();
 setInterval(refresh, 3000);
 
@@ -332,6 +368,15 @@ setInterval(refresh, 3000);
         self.hedge_names = dict(self.HEDGE_NAMES)
         if extra_hedge_names:
             self.hedge_names.update(extra_hedge_names)
+        # 按大类分组; 未分类的对冲代码并入"其他"
+        self.hedge_groups = {}
+        for cat, codes in self.HEDGE_CATEGORIES.items():
+            self.hedge_groups[cat] = [c for c in codes if c in self.hedge_names]
+        extra = [c for c in self.hedge_names
+                 if not any(c in codes for codes in self.hedge_groups.values())]
+        if extra:
+            self.hedge_groups.setdefault('其他', [])
+            self.hedge_groups['其他'] += extra
 
     def start(self):
         """启动 HTTP 服务器（后台线程）"""
@@ -341,9 +386,18 @@ setInterval(refresh, 3000);
             def log_message(self, format, *args):
                 pass  # 静默日志
 
+            def _is_local_host(self):
+                """判断请求是否来自本机 (Host 头为 localhost/127.0.0.1/::1)"""
+                host = self.headers.get('Host', '')
+                hostname = host.rsplit(':', 1)[0].lower()
+                return hostname in ('localhost', '127.0.0.1', '[::1]', '::1')
+
             def _check_auth(self):
                 """返回 True 表示通过校验; False 表示未授权(已发送401)"""
                 if not dashboard.token:
+                    return True
+                # 本地 4006 端口直接访问无需令牌, 只有公网隧道访问才校验
+                if self._is_local_host():
                     return True
                 q = parse_qs(urlparse(self.path).query)
                 provided = q.get('token', [''])[0]
@@ -401,7 +455,12 @@ setInterval(refresh, 3000);
                 self.wfile.write(body)
 
             def _serve_html(self):
-                body = Dashboard.HTML.encode('utf-8')
+                # 把静态对冲代码中文名与分类注入页面, 前端直接列出无需额外请求
+                hedge_json = json.dumps(dashboard.hedge_names, ensure_ascii=False)
+                groups_json = json.dumps(dashboard.hedge_groups, ensure_ascii=False)
+                body = (Dashboard.HTML
+                        .replace('__HEDGE_NAMES_JSON__', hedge_json)
+                        .replace('__HEDGE_GROUPS_JSON__', groups_json)).encode('utf-8')
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/html; charset=utf-8')
                 self.end_headers()
