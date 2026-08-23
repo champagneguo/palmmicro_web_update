@@ -365,7 +365,7 @@ class SinaStock(PalmmicroStock):
 		#print(PalmmicroTask.GetThreadsDataFrame())
 
 	@classmethod
-	def TaskInit(cls, strSymbols: str = 'fx_susdcny,nf_AG0', interval: int = 19):
+	def TaskInit(cls, strSymbols: str = 'fx_susdcny,nf_AG0,nf_M0', interval: int = 19):
 		cls.task = PalmmicroTask(cls.__name__, cls.TaskLoop, interval, (strSymbols, ))
 		cls.task.start()
 		return cls.arStock
@@ -514,7 +514,7 @@ class PalmmicroWrapper(EWrapper):
 		self.client = client
 		if arMapping is not None:
 			self.arSymbols = list(set(s for sublist in arMapping.values() for s in sublist))
-			self.arSymbols.remove('nf_AG0')
+			self.arSymbols = [s for s in self.arSymbols if not s.startswith('nf_')]
 			TdxStock.TqDebug(','.join(self.arSymbols))
 			self.arStock = {}
 

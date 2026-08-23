@@ -71,6 +71,7 @@ class PalmmicroAPI(TelegramAPI):
 									'hf_NQ': 2,		# MNQ
 									'hf_SI': 5000,	# SI
 									'nf_AG0': 15,
+									'nf_M0': 10,	# 豆粕:10吨/手
 									'default': 1}	# 默认倍率
 	DEFAULT_KEY_QUANTITY: int = 1000000
 	DEFAULT_HEDGE_QUANTITY: int = 10000
@@ -495,7 +496,8 @@ class PalmmicroDataFrame:
 		iSize = arQuantity[strSymbol]
 		if iSize > 0:
 			arSrcPrice = mkt_stock.GetSymbolPrice(strMktType)
-			if PalmmicroStock.IsLOF(strSymbol) == False:
+			# 国内期货(nf_)以人民币计价, 无需乘以USD/CNY汇率; LOF同理直接以人民币计价
+			if PalmmicroStock.IsLOF(strSymbol) == False and strMktSymbol.startswith('nf_') == False:
 				if usdcny_stock is not None:
 					arSrcPrice |= usdcny_stock.GetSymbolPrice()
 			fEst = self.api.EstNetValue(strSymbol, arSrcPrice)
