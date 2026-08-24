@@ -51,6 +51,40 @@ def _send_command(cmd: str, timeout: float = 30.0) -> str:
         s.close()
 
 
+class QmtConnection:
+    """持久连接：一次连接、多次 request-response（用于 place_order 批量下发多条指令）"""
+
+    def __init__(self, host=QMT_HOST, port=QMT_PORT, timeout=62):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.settimeout(timeout)
+        self.sock.connect((host, port))
+
+    def command(self, cmd: str) -> str:
+        """发送一条指令，读取一条回执（以 \n 结尾）"""
+        self.sock.sendall((cmd + "\n").encode('utf-8'))
+        data = b""
+        while True:
+            chunk = self.sock.recv(4096)
+            if not chunk:
+                break
+            data += chunk
+            if b"\n" in data:
+                break
+        return data.decode('utf-8').strip()
+
+    def close(self):
+        try:
+            self.sock.close()
+        except Exception:
+            pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
+
 def ping() -> str:
     # QMT 的 Python 线程调度有 ~6s 固有延迟（策略日志可证），超时设大避免误判
     return _send_command("PING", timeout=15)

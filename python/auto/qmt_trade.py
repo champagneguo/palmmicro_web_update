@@ -21,6 +21,9 @@ def _parse_json(resp: str):
 def place_order(action, code, volume, price, account=None):
     """下单并回查委托/成交，落库。返回结果 dict。
 
+    复用单条长连接依次下发「下单 → 回查委托 → 回查成交」三条指令，
+    避免每次指令都新建/关闭 TCP 连接。
+
     :param action:  'BUY' / 'SELL'
     :param code:    QMT 格式代码，如 '159985.SZ'
     :param volume:  数量（股）
@@ -28,20 +31,22 @@ def place_order(action, code, volume, price, account=None):
     :param account: 资金账号或股东账号；None 则默认资金账号
     :return: {"ok": bool, "result": str, "orders": [...], "deals": [...]}
     """
-    # 1. 下单
-    if action == 'BUY':
-        result = qmt_client.buy(code, volume, price, account)
-    elif action == 'SELL':
-        result = qmt_client.sell(code, volume, price, account)
-    else:
+    if action not in ('BUY', 'SELL'):
         return {"ok": False, "error": f"未知方向: {action}"}
 
-    account_used = account or qmt_client.FUND_ACCOUNT
-    qmt_db.log_order(action, code, volume, price, account_used, result)
+    cmd = f"{action},{code},{volume},{price}"
+    if account:
+        cmd += f",{account}"
 
-    # 2. 回查委托 + 成交（每条指令约 6~8s QMT 延迟）
-    order_data = _parse_json(qmt_client.query_order())
-    deal_data = _parse_json(qmt_client.query_deal())
+    with qmt_client.QmtConnection() as conn:
+        # 1. 下单
+        result = conn.command(cmd)
+        account_used = account or qmt_client.FUND_ACCOUNT
+        qmt_db.log_order(action, code, volume, price, account_used, result)
+
+        # 2. 回查委托 + 成交（复用同一连接）
+        order_data = _parse_json(conn.command("QUERY_ORDER"))
+        deal_data = _parse_json(conn.command("QUERY_DEAL"))
 
     orders = (order_data or {}).get('orders', [])
     deals = (deal_data or {}).get('deals', [])

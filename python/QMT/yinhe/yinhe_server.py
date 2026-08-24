@@ -98,67 +98,73 @@ class QueryRequest:
 
 def handle_client(conn: socket.socket, addr):
     try:
-        raw = b""
-        conn.settimeout(0.1)
-        try:
-            while len(raw) < 2048:
-                chunk = conn.recv(512)
-                if not chunk:
-                    break
-                raw += chunk
-                if b"\n" in raw:
-                    break
-        except socket.timeout:
-            pass
+        while True:
+            # ── 读取一条指令（以 \n 结尾），长连接复用 ──────────
+            raw = b""
+            conn.settimeout(30)  # 等待下一条指令最长 30s，超时视为客户端不再下发
+            try:
+                while len(raw) < 2048:
+                    chunk = conn.recv(512)
+                    if not chunk:
+                        raw = b""
+                        break  # EOF → 客户端断开
+                    raw += chunk
+                    if b"\n" in raw:
+                        break
+            except socket.timeout:
+                break  # 30s 无新指令，关闭连接
 
-        data = raw.decode('utf-8').strip()
-        if not data:
-            return
+            if not raw:
+                break  # 客户端断开
 
-        log(f"收到指令 [{addr}]: {data!r}")
-        parts = data.split(',')
-        action = parts[0].strip().upper()
+            data = raw.decode('utf-8').strip()
+            if not data:
+                continue
 
-        # ── PING ────────────────────────────────────────────────
-        if action == 'PING':
-            conn.sendall(b"PONG\n")
-            return
+            log(f"收到指令 [{addr}]: {data!r}")
+            parts = data.split(',')
+            action = parts[0].strip().upper()
 
-        # ── SHUTDOWN ────────────────────────────────────────────
-        if action == 'SHUTDOWN':
-            log("收到 SHUTDOWN 指令，准备关闭 Socket 服务...")
-            conn.sendall(b"OK\n")
-            _sock = g_server_socket
-            if _sock is not None:
-                try:
-                    _sock.close()
-                except Exception:
-                    pass
-            return
+            # ── PING ────────────────────────────────────────────
+            if action == 'PING':
+                conn.sendall(b"PONG\n")
+                continue
 
-        # ── 需要 QMT C++ 接口的指令：入队 + Event 等待 ──────────
-        if action in ("QUERY_ACCOUNT", "QUERY_POS", "QUERY_ORDER", "QUERY_DEAL",
-                      "BUY", "SELL", "CANCEL_ORDER"):
-            # 交易指令需等待交易所回执，超时 62s；查询指令 30s
-            wait_timeout = 62.0 if action in ('BUY', 'SELL', 'CANCEL_ORDER') else 30.0
+            # ── SHUTDOWN ────────────────────────────────────────
+            if action == 'SHUTDOWN':
+                log("收到 SHUTDOWN 指令，准备关闭 Socket 服务...")
+                conn.sendall(b"OK\n")
+                _sock = g_server_socket
+                if _sock is not None:
+                    try:
+                        _sock.close()
+                    except Exception:
+                        pass
+                break
 
-            req = QueryRequest(data)
-            g_request_queue.put(req)
-            log(f"{action} 请求已入队，等待主线程处理... 队列大小={g_request_queue.qsize()}")
+            # ── 需要 QMT C++ 接口的指令：入队 + Event 等待 ──────
+            if action in ("QUERY_ACCOUNT", "QUERY_POS", "QUERY_ORDER", "QUERY_DEAL",
+                          "BUY", "SELL", "CANCEL_ORDER"):
+                # 交易指令需等待交易所回执，超时 62s；查询指令 30s
+                wait_timeout = 62.0 if action in ('BUY', 'SELL', 'CANCEL_ORDER') else 30.0
 
-            if req.wait(timeout=wait_timeout):
-                result_str = req.result or "ERROR:empty_result"
-            else:
-                result_str = "TIMEOUT"
-                log(f"{action} 等待超时（{wait_timeout}s）")
+                req = QueryRequest(data)
+                g_request_queue.put(req)
+                log(f"{action} 请求已入队，等待主线程处理... 队列大小={g_request_queue.qsize()}")
 
-            log(f"{action} 回执: {result_str[:200]}")
-            conn.settimeout(None)  # 发送回执前取消超时，防止大回执发不完
-            conn.sendall((result_str + "\n").encode('utf-8'))
-            return
+                if req.wait(timeout=wait_timeout):
+                    result_str = req.result or "ERROR:empty_result"
+                else:
+                    result_str = "TIMEOUT"
+                    log(f"{action} 等待超时（{wait_timeout}s）")
 
-        log(f"未知指令: {data!r}")
-        conn.sendall(b"UNKNOWN\n")
+                log(f"{action} 回执: {result_str[:200]}")
+                conn.settimeout(None)  # 发送回执前取消超时，防止大回执发不完
+                conn.sendall((result_str + "\n").encode('utf-8'))
+                continue
+
+            log(f"未知指令: {data!r}")
+            conn.sendall(b"UNKNOWN\n")
 
     except Exception as e:
         log(f"handle_client 异常 [{addr}]: {e}")
