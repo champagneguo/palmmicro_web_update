@@ -12,6 +12,7 @@ QMT 下单客户端（通达信侧）
     print(sell(code, 10000, 2.16, '深A0184343291'))  # 分仓卖出
 """
 import socket
+import threading
 
 # QMT Socket 服务地址（与 yinhe_server.py 的 LISTEN_PORT 对应）
 QMT_HOST = "127.0.0.1"
@@ -66,10 +67,12 @@ class QmtConnection:
         while True:
             chunk = self.sock.recv(4096)
             if not chunk:
-                break
+                break  # EOF
             data += chunk
             if b"\n" in data:
                 break
+        if not data:
+            raise ConnectionError("QMT 连接已断开")
         return data.decode('utf-8').strip()
 
     def close(self):
@@ -83,6 +86,50 @@ class QmtConnection:
 
     def __exit__(self, *args):
         self.close()
+
+
+# ══════════════ 持久连接（启动时建立一次，全程复用）══════════════
+_conn = None
+_conn_lock = threading.Lock()
+
+
+def connect():
+    """建立持久连接（启动时调用一次；失败不阻塞，后续指令会自动重连）"""
+    global _conn
+    try:
+        with _conn_lock:
+            if _conn is None:
+                _conn = QmtConnection()
+        return True
+    except Exception as e:
+        print(f"QMT 连接失败（后续指令会自动重连）: {e}")
+        return False
+
+
+def disconnect():
+    """关闭持久连接（程序退出时调用）"""
+    global _conn
+    with _conn_lock:
+        if _conn is not None:
+            _conn.close()
+            _conn = None
+
+
+def send_command(cmd: str) -> str:
+    """通过持久连接发送一条指令；连接断开时自动重连重试一次"""
+    global _conn
+    with _conn_lock:
+        if _conn is None:
+            _conn = QmtConnection()
+        try:
+            return _conn.command(cmd)
+        except ConnectionError:
+            try:
+                _conn.close()
+            except Exception:
+                pass
+            _conn = QmtConnection()
+            return _conn.command(cmd)
 
 
 def ping() -> str:

@@ -10,6 +10,7 @@ from palmmicrostock import PalmmicroStock, SinaStock, TdxStock, IbkrStock
 from palmmicroapi import PalmmicroAPI, PalmmicroDataFrame
 from palmmicrosocket import PalmmicroSocket
 from dashboard import Dashboard
+import qmt_client
 
 class PalmmicroApp:
 	def __init__(self, root):
@@ -95,6 +96,8 @@ class PalmmicroApp:
 		# 启动 Web Dashboard :40006
 		self.dashboard = Dashboard(self.pdf)
 		self.dashboard.start()
+		# 建立 QMT 持久连接（启动时一次，后续下单直接复用）
+		qmt_client.connect()
 		return df
 	
 	def setup_ui(self):
@@ -247,6 +250,7 @@ class PalmmicroApp:
 		TdxStock.TqDebug('释放资源...')
 		#self.sender.stop()
 		self.dashboard.stop()
+		qmt_client.disconnect()
 		IbkrStock.FreeAPI()
 		SinaStock.TaskFree()
 		#TdxStock.TqFree()

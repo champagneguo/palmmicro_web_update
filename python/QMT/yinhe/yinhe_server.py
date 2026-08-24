@@ -101,7 +101,7 @@ def handle_client(conn: socket.socket, addr):
         while True:
             # ── 读取一条指令（以 \n 结尾），长连接复用 ──────────
             raw = b""
-            conn.settimeout(30)  # 等待下一条指令最长 30s，超时视为客户端不再下发
+            conn.settimeout(3600)  # 长连接空闲超时 1 小时，期间客户端可随时下发指令
             try:
                 while len(raw) < 2048:
                     chunk = conn.recv(512)

@@ -38,15 +38,14 @@ def place_order(action, code, volume, price, account=None):
     if account:
         cmd += f",{account}"
 
-    with qmt_client.QmtConnection() as conn:
-        # 1. 下单
-        result = conn.command(cmd)
-        account_used = account or qmt_client.FUND_ACCOUNT
-        qmt_db.log_order(action, code, volume, price, account_used, result)
+    # 1. 下单（复用启动时建立的持久连接）
+    result = qmt_client.send_command(cmd)
+    account_used = account or qmt_client.FUND_ACCOUNT
+    qmt_db.log_order(action, code, volume, price, account_used, result)
 
-        # 2. 回查委托 + 成交（复用同一连接）
-        order_data = _parse_json(conn.command("QUERY_ORDER"))
-        deal_data = _parse_json(conn.command("QUERY_DEAL"))
+    # 2. 回查委托 + 成交（复用持久连接）
+    order_data = _parse_json(qmt_client.send_command("QUERY_ORDER"))
+    deal_data = _parse_json(qmt_client.send_command("QUERY_DEAL"))
 
     orders = (order_data or {}).get('orders', [])
     deals = (deal_data or {}).get('deals', [])
