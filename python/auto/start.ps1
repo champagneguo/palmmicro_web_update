@@ -107,6 +107,9 @@ if (-not $token) {
 # 通过环境变量传给 Dashboard
 $env:DASHBOARD_TOKEN = $token
 
+# QMT 下单回执模式: poll(轮询回查, 需跑 YINHE_SERVER, 仿真可用) / push(事件驱动回调, 需跑 YINHE_SERVER_UPDATE, 仅实盘)
+$env:QMT_ORDER_MODE = "poll"
+
 # 优先使用 cloudflared (免费、无拦截页，桌面和手机都能正常访问)
 $cloudflared = Get-Command cloudflared -ErrorAction SilentlyContinue
 # 兜底: 如果 PATH 中找不到, 尝试常见安装路径
