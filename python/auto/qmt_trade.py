@@ -41,20 +41,26 @@ def place_order(action, code, volume, price, account=None, wait_push=True):
     if account:
         cmd += f",{account}"
 
-    # 1. 下单（服务端返回 OK:remark，remark 用于关联后续推送）
+    # 1. 下单（服务端返回 OK:remark:订单ID）
     result = qmt_client.send_command(cmd)
     account_used = account or qmt_client.FUND_ACCOUNT
     qmt_db.log_order(action, code, volume, price, account_used, result)
 
     remark = None
+    order_id = None
     if result.startswith("OK:"):
-        remark = result[3:].split(":", 1)[0]
+        parts = result[3:].split(":")
+        remark = parts[0] if parts else None
+        order_id = parts[1] if len(parts) > 1 else None
 
-    # 2. 读回调推送（ORDER/DEAL），直到终止状态或超时
+    # 仿真模式（订单ID=0）回调不触发，跳过等待推送，立即返回
+    is_sim = (order_id == "0")
+
+    # 2. 读回调推送（ORDER/DEAL），直到终止状态或超时（仅实盘等）
     orders = []
     deals = []
-    if wait_push:
-        deadline = time.time() + 15
+    if wait_push and not is_sim:
+        deadline = time.time() + 8
         while time.time() < deadline:
             msg = qmt_client.receive_push(timeout=max(0.5, deadline - time.time()))
             if not msg or not msg.startswith("PUSH:"):
