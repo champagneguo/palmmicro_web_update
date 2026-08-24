@@ -53,35 +53,43 @@ def place_order(action, code, volume, price, account=None, wait_push=True):
         remark = parts[0] if parts else None
         order_id = parts[1] if len(parts) > 1 else None
 
-    # 仿真模式（订单ID=0）回调不触发，跳过等待推送，立即返回
-    is_sim = (order_id == "0")
-
-    # 2. 读回调推送（ORDER/DEAL），直到终止状态或超时（仅实盘等）
     orders = []
-    deals = []
-    if wait_push and not is_sim:
-        deadline = time.time() + 8
-        while time.time() < deadline:
-            msg = qmt_client.receive_push(timeout=max(0.5, deadline - time.time()))
-            if not msg or not msg.startswith("PUSH:"):
-                break
-            data = _parse_json(msg[5:]) or {}
-            if data.get("type") == "ORDER":
-                orders.append(data)
-                if data.get("status") in TERMINAL_ORDER_STATUS:
-                    break
-            elif data.get("type") == "DEAL":
-                deals.append(data)
+    deals = []  # 统一成 log_trades 格式
 
-    # 3. 成交落库（PUSH 的 DEAL 字段转成 log_trades 格式；dealId 用于幂等去重）
-    if deals:
-        qmt_db.log_trades([{
+    if qmt_client.ORDER_MODE == 'poll':
+        # v1 轮询：下单后回查委托/成交
+        order_data = _parse_json(qmt_client.send_command("QUERY_ORDER"))
+        deal_data = _parse_json(qmt_client.send_command("QUERY_DEAL"))
+        orders = (order_data or {}).get('orders', [])
+        deals = (deal_data or {}).get('deals', [])
+    else:
+        # v2 事件驱动：等回调推送（仿真模式订单ID=0 回调不触发，直接跳过）
+        is_sim = (order_id == "0")
+        if wait_push and not is_sim:
+            deadline = time.time() + 8
+            while time.time() < deadline:
+                msg = qmt_client.receive_push(timeout=max(0.5, deadline - time.time()))
+                if not msg or not msg.startswith("PUSH:"):
+                    break
+                data = _parse_json(msg[5:]) or {}
+                if data.get("type") == "ORDER":
+                    orders.append(data)
+                    if data.get("status") in TERMINAL_ORDER_STATUS:
+                        break
+                elif data.get("type") == "DEAL":
+                    deals.append(data)
+        # PUSH 的 DEAL 转成 log_trades 格式
+        deals = [{
             "code": d.get("code"), "name": "", "action": action,
             "volume": d.get("volume"), "price": d.get("price"),
             "amount": d.get("amount"), "commission": 0,
             "orderId": d.get("orderId"), "dealId": d.get("dealId"),
             "time": d.get("time"),
-        } for d in deals])
+        } for d in deals]
+
+    # 3. 成交落库（dealId 幂等去重）
+    if deals:
+        qmt_db.log_trades(deals)
 
     return {
         "ok": True,

@@ -11,6 +11,7 @@ QMT 下单客户端（通达信侧）
     print(buy(code, 10000, 2.16))               # 买入
     print(sell(code, 10000, 2.16, '深A0184343291'))  # 分仓卖出
 """
+import os
 import socket
 import threading
 
@@ -30,6 +31,12 @@ SHAREHOLDER_SH = [
 ]
 
 FUTURE_ACCOUNT = "0260006339"
+
+# 下单回执模式：
+#   'push' —— 事件驱动：服务端跑 YINHE_SERVER_UPDATE，下单后等 order_callback/deal_callback 推送
+#   'poll' —— 轮询回查：服务端跑 YINHE_SERVER，下单后 QUERY_ORDER/QUERY_DEAL 回查
+# 可通过环境变量 QMT_ORDER_MODE 覆盖（仿真模式建议 'poll'，实盘建议 'push'）
+ORDER_MODE = os.environ.get('QMT_ORDER_MODE', 'push')
 
 
 def _send_command(cmd: str, timeout: float = 30.0) -> str:
