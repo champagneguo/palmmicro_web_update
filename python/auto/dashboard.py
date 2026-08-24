@@ -6,6 +6,9 @@ from urllib.parse import urlparse, parse_qs
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from datetime import datetime, timezone, timedelta
 
+import qmt_client
+import qmt_trade
+
 class Dashboard:
     """轻量级 Web Dashboard，展示配对交易数据"""
 
@@ -117,6 +120,13 @@ td.dir.sell { color:var(--red); }
 .filter-bar select:focus { outline:2px solid #0969da; outline-offset:-1px; }
 .filter-badge { display:inline-block; font-size:11px; background:#ddf4ff; color:#0969da; border-radius:10px; padding:1px 8px; cursor:pointer; }
 .filter-badge.active { background:#0969da; color:#fff; }
+.order-panel { display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:12px; }
+.order-panel .title { font-weight:700; font-size:13px; color:var(--text); margin-right:2px; }
+.order-panel select, .order-panel input { padding:5px 8px; border:1px solid var(--border); border-radius:6px; font-size:13px; background:var(--card); color:var(--text); }
+.order-panel input[type=number] { width:110px; }
+.order-panel button { padding:5px 16px; background:#0969da; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer; font-weight:600; }
+.order-panel button:disabled { background:#8b949e; cursor:not-allowed; }
+.order-panel .result { font-size:12px; color:var(--muted); max-width:420px; word-break:break-all; }
 </style>
 </head>
 <body>
@@ -139,6 +149,19 @@ td.dir.sell { color:var(--red); }
   </select>
   <span id="filterCount" style="font-size:12px;color:var(--muted);"></span>
 </div>
+<div class="order-panel">
+  <span class="title">下单</span>
+  <select id="orderCode"><option value="">选择代码</option></select>
+  <select id="orderAction">
+    <option value="BUY">买入</option>
+    <option value="SELL">卖出</option>
+  </select>
+  <input id="orderVolume" type="number" placeholder="数量(股)" min="100" step="100">
+  <input id="orderPrice" type="number" placeholder="价格" step="0.001">
+  <select id="orderAccount"><option value="">默认账户</option></select>
+  <button id="orderBtn" onclick="placeOrder()">下单</button>
+  <span class="result" id="orderResult"></span>
+</div>
 <div class="table-wrap">
   <div id="main"><div class="empty">加载中...</div></div>
 </div>
@@ -147,6 +170,7 @@ td.dir.sell { color:var(--red); }
 <script>
 var HEDGE_NAMES = __HEDGE_NAMES_JSON__;
 var HEDGE_GROUPS = __HEDGE_GROUPS_JSON__;
+var ACCOUNTS = __ACCOUNTS_JSON__;
 var CATEGORY_ORDER = Object.keys(HEDGE_GROUPS);
 var allRows = [];
 var sortKey = '对冲代码';
@@ -324,10 +348,63 @@ async function refresh() {
     document.getElementById('updateTime').textContent = new Date().toLocaleString('zh-CN', {hour12:false});
     renderTable();
     updateFilterCount();
+    if (!orderCodesPopulated) { populateOrderCode(); orderCodesPopulated = true; }
   } catch(e) {
     document.getElementById('main').innerHTML = '<div class="empty">连接失败，重试中...</div>';
   }
 }
+var orderCodesPopulated = false;
+
+function populateOrderCode() {
+  var sel = document.getElementById('orderCode');
+  var cur = sel.value;
+  var codes = [];
+  allRows.forEach(function(r) {
+    var c = String(r['代码'] || '').replace(/\(.*\)$/, '');
+    if (c && codes.indexOf(c) < 0) codes.push(c);
+  });
+  var opts = ['<option value="">选择代码</option>'];
+  codes.forEach(function(c) { opts.push('<option value="' + esc(c) + '">' + esc(c) + '</option>'); });
+  sel.innerHTML = opts.join('');
+  sel.value = cur;
+}
+
+function populateOrderAccount() {
+  var sel = document.getElementById('orderAccount');
+  var opts = ['<option value="">默认账户 (' + esc(ACCOUNTS.fund) + ')</option>'];
+  (ACCOUNTS.shareholders || []).forEach(function(a) {
+    opts.push('<option value="' + esc(a) + '">' + esc(a) + '</option>');
+  });
+  sel.innerHTML = opts.join('');
+}
+
+async function placeOrder() {
+  var code = document.getElementById('orderCode').value;
+  var action = document.getElementById('orderAction').value;
+  var volume = parseInt(document.getElementById('orderVolume').value, 10);
+  var price = parseFloat(document.getElementById('orderPrice').value);
+  var account = document.getElementById('orderAccount').value;
+  if (!code || !volume || !price) { alert('请填写代码 / 数量 / 价格'); return; }
+  if (!confirm('确认 ' + (action === 'BUY' ? '买入' : '卖出') + ' ' + code + ' ' + volume + ' 股 @ ' + price + ' ?')) return;
+  var btn = document.getElementById('orderBtn');
+  btn.disabled = true;
+  document.getElementById('orderResult').textContent = '下单中（QMT 回执约 6~8 秒）...';
+  try {
+    var res = await fetch('/api/order' + (TOKEN ? '?token=' + encodeURIComponent(TOKEN) : ''), {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({code: code, action: action, volume: volume, price: price, account: account})
+    });
+    var data = await res.json();
+    document.getElementById('orderResult').textContent = JSON.stringify(data);
+  } catch(e) {
+    document.getElementById('orderResult').textContent = '下单失败: ' + e;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+populateOrderAccount();
 populateCategoryFilter();
 populateFilter();
 refresh();
@@ -419,6 +496,49 @@ setInterval(refresh, 3000);
                 else:
                     self._serve_html()
 
+            def do_POST(self):
+                if not self._check_auth():
+                    return
+                if self.path.split('?')[0] == '/api/order':
+                    self._handle_order()
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+
+            def _handle_order(self):
+                """处理手动下单请求（POST /api/order）"""
+                try:
+                    length = int(self.headers.get('Content-Length', 0))
+                    body = self.rfile.read(length).decode('utf-8')
+                    data = json.loads(body)
+                except Exception:
+                    data = {}
+
+                code = (data.get('code') or '').strip()          # 通达信格式 SZ159985
+                action = (data.get('action') or '').strip().upper()
+                try:
+                    volume = int(data.get('volume', 0))
+                    price = float(data.get('price', 0))
+                except (TypeError, ValueError):
+                    volume = 0
+                    price = 0.0
+                account = (data.get('account') or '').strip()
+
+                if not code or action not in ('BUY', 'SELL') or volume <= 0 or price <= 0:
+                    resp = {"ok": False, "error": "参数错误: 需要 code/action/volume/price"}
+                else:
+                    qmt_code = qmt_client.tdx_to_qmt_code(code)
+                    try:
+                        resp = qmt_trade.place_order(action, qmt_code, volume, price, account or None)
+                    except Exception as e:
+                        resp = {"ok": False, "error": str(e)}
+
+                out = json.dumps(resp, ensure_ascii=False, default=str).encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(out)
+
             def _get_data(self):
                 """带缓存地生成数据, 多请求共享"""
                 now = time.monotonic()
@@ -460,9 +580,14 @@ setInterval(refresh, 3000);
                 # 把静态对冲代码中文名与分类注入页面, 前端直接列出无需额外请求
                 hedge_json = json.dumps(dashboard.hedge_names, ensure_ascii=False)
                 groups_json = json.dumps(dashboard.hedge_groups, ensure_ascii=False)
+                accounts_json = json.dumps({
+                    'fund': qmt_client.FUND_ACCOUNT,
+                    'shareholders': qmt_client.SHAREHOLDER_SZ + qmt_client.SHAREHOLDER_SH,
+                }, ensure_ascii=False)
                 body = (Dashboard.HTML
                         .replace('__HEDGE_NAMES_JSON__', hedge_json)
-                        .replace('__HEDGE_GROUPS_JSON__', groups_json)).encode('utf-8')
+                        .replace('__HEDGE_GROUPS_JSON__', groups_json)
+                        .replace('__ACCOUNTS_JSON__', accounts_json)).encode('utf-8')
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/html; charset=utf-8')
                 self.end_headers()
