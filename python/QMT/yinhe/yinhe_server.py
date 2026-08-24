@@ -201,13 +201,11 @@ def socket_server_thread():
         try:
             conn, addr = server.accept()
             log(f"新连接: {addr}")
-            t = threading.Thread(
-                target=handle_client,
-                args=(conn, addr),
-                daemon=True,
-                name=f"Client-{addr[1]}"
-            )
-            t.start()
+            # 关键优化：同步处理，不为每个连接新开线程。
+            # QMT 内嵌 Python 对新线程的调度有 1~5s 延迟（日志里"新连接→收到指令"间隔即此），
+            # 在 accept() 的同一线程里直接 recv 即可消除这段延迟。
+            # 代价：同一时刻只处理一个连接（本场景客户端串行发指令，无影响）。
+            handle_client(conn, addr)
         except socket.timeout:
             continue
         except OSError:
