@@ -67,13 +67,14 @@ def place_order(action, code, volume, price, account=None, wait_push=True):
             elif data.get("type") == "DEAL":
                 deals.append(data)
 
-    # 3. 成交落库（PUSH 的 DEAL 字段转成 log_trades 格式）
+    # 3. 成交落库（PUSH 的 DEAL 字段转成 log_trades 格式；dealId 用于幂等去重）
     if deals:
         qmt_db.log_trades([{
             "code": d.get("code"), "name": "", "action": action,
             "volume": d.get("volume"), "price": d.get("price"),
             "amount": d.get("amount"), "commission": 0,
-            "orderId": d.get("dealId"), "time": d.get("time"),
+            "orderId": d.get("orderId"), "dealId": d.get("dealId"),
+            "time": d.get("time"),
         } for d in deals])
 
     return {

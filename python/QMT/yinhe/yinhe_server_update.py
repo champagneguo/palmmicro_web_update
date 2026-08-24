@@ -390,6 +390,7 @@ def deal_callback(ContextInfo, dealInfo):
             "amount":   getattr(dealInfo, 'm_dTradeAmount', 0),
             "time":     getattr(dealInfo, 'm_strTradeTime', ''),
             "dealId":   getattr(dealInfo, 'm_strDealID', ''),
+            "orderId":  getattr(dealInfo, 'm_strOrderSysID', ''),
             "remark":   getattr(dealInfo, 'm_strRemark', ''),
         }
         _push("PUSH:" + json.dumps(data, ensure_ascii=False))

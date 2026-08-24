@@ -32,7 +32,16 @@ def _ensure_conn():
         _conn.execute('PRAGMA journal_mode=WAL')       # 写不阻塞读
         _conn.execute('PRAGMA synchronous=NORMAL')     # 提升写入速度
         _create_tables(_conn)
+        _migrate(_conn)
     return _conn
+
+
+def _migrate(conn):
+    """兼容旧库：补齐 deal_id 列 + 唯一索引（用于成交去重）"""
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(trades)").fetchall()]
+    if 'deal_id' not in cols:
+        conn.execute("ALTER TABLE trades ADD COLUMN deal_id TEXT")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_trades_deal_id ON trades(deal_id)")
 
 
 def _create_tables(conn):
@@ -61,7 +70,8 @@ def _create_tables(conn):
         amount     REAL,
         commission REAL,
         order_id   TEXT,
-        trade_time TEXT
+        trade_time TEXT,
+        deal_id    TEXT
     );
 
     CREATE TABLE IF NOT EXISTS positions (
@@ -109,8 +119,16 @@ def log_order(action, code, volume, price, account, result, qmt_order_id=None):
     )
 
 
+def _deal_dedup_key(d):
+    """成交去重键：优先成交编号 dealId，否则用复合键兜底"""
+    deal_id = (d.get('dealId') or '').strip()
+    if deal_id:
+        return deal_id
+    return f"{d.get('code')}|{d.get('volume')}|{d.get('price')}|{d.get('time')}"
+
+
 def log_trades(deals):
-    """批量写入成交记录。deals: list[dict]（QUERY_DEAL 返回的 deals 字段）"""
+    """批量写入成交记录（按 deal_id 幂等去重，防 deal_callback 重复推送）。deals: list[dict]"""
     if not deals:
         return
     ts = time.strftime('%Y-%m-%d %H:%M:%S')
@@ -118,10 +136,11 @@ def log_trades(deals):
         conn = _ensure_conn()
         for d in deals:
             conn.execute(
-                'INSERT INTO trades (ts, code, name, action, volume, price, amount, commission, order_id, trade_time) '
-                'VALUES (?,?,?,?,?,?,?,?,?,?)',
+                'INSERT OR IGNORE INTO trades (ts, code, name, action, volume, price, amount, commission, order_id, trade_time, deal_id) '
+                'VALUES (?,?,?,?,?,?,?,?,?,?,?)',
                 (ts, d.get('code'), d.get('name'), d.get('action'), d.get('volume'),
-                 d.get('price'), d.get('amount'), d.get('commission'), d.get('orderId'), d.get('time'))
+                 d.get('price'), d.get('amount'), d.get('commission'), d.get('orderId'),
+                 d.get('time'), _deal_dedup_key(d))
             )
         conn.commit()
 
