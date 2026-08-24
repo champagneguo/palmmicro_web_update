@@ -22,6 +22,7 @@ SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 # 注意：目标文件名的 .py 后缀必须保留，QMT 依据文件名识别策略。
 FILE_MAP = {
     "yinhe_server.py": "YINHE_SERVER.py",
+    "yinhe_server_update.py": "YINHE_SERVER_UPDATE.py",
 }
 
 # QMT 要求的编码（源文件为 UTF-8，同步时转成该编码）

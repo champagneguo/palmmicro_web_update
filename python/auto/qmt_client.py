@@ -62,7 +62,23 @@ class QmtConnection:
 
     def command(self, cmd: str) -> str:
         """发送一条指令，读取一条回执（以 \n 结尾）"""
+        self.sock.settimeout(62)
         self.sock.sendall((cmd + "\n").encode('utf-8'))
+        data = b""
+        while True:
+            chunk = self.sock.recv(4096)
+            if not chunk:
+                break  # EOF
+            data += chunk
+            if b"\n" in data:
+                break
+        if not data:
+            raise ConnectionError("QMT 连接已断开")
+        return data.decode('utf-8').strip()
+
+    def receive_push(self, timeout: float = 10.0) -> str:
+        """读取一条推送消息（以 \n 结尾，通常为 PUSH: 前缀）"""
+        self.sock.settimeout(timeout)
         data = b""
         while True:
             chunk = self.sock.recv(4096)
@@ -130,6 +146,18 @@ def send_command(cmd: str) -> str:
                 pass
             _conn = QmtConnection()
             return _conn.command(cmd)
+
+
+def receive_push(timeout: float = 10.0):
+    """通过持久连接读取一条推送消息（PUSH: 开头）；无推送/断开返回 None"""
+    global _conn
+    with _conn_lock:
+        if _conn is None:
+            return None
+        try:
+            return _conn.receive_push(timeout)
+        except (ConnectionError, socket.timeout, OSError):
+            return None
 
 
 def ping() -> str:
