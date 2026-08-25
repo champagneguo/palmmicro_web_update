@@ -430,7 +430,7 @@ def init(ContextInfo):
     threading.Thread(target=socket_server_thread, daemon=True, name="SocketServer").start()
     log("Socket 服务器线程已启动")
 
-    ContextInfo.run_time("check_orders", "1nSecond", "2020-01-01 09:30:00")
+    ContextInfo.run_time("check_orders", "1nSecond", "")  # 起始时间空 = 立即启动（实盘需如此）
     log("定时器 check_orders 已注册（每秒处理请求队列）")
 
 
