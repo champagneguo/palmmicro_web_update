@@ -111,26 +111,28 @@ class QueryRequest:
 def handle_client(conn: socket.socket, addr):
     global g_client_sock
     g_client_sock = conn  # 注册当前连接，供回调推送
+    buf = b""  # 接收缓冲，处理粘包（多条指令一次到达）
     try:
         while True:
-            raw = b""
+            # 读数据直到 buf 里至少有一条完整指令（\n 结尾）
             conn.settimeout(3600)  # 长连接空闲超时 1 小时
-            try:
-                while len(raw) < 2048:
+            while b"\n" not in buf:
+                try:
                     chunk = conn.recv(512)
-                    if not chunk:
-                        raw = b""
-                        break
-                    raw += chunk
-                    if b"\n" in raw:
-                        break
-            except socket.timeout:
+                except socket.timeout:
+                    break
+                if not chunk:
+                    break
+                buf += chunk
+            if not buf:
                 break
+            # 提取一条指令，剩余留在 buf 给下一条（防粘包）
+            if b"\n" in buf:
+                line, buf = buf.split(b"\n", 1)
+            else:
+                line, buf = buf, b""
 
-            if not raw:
-                break
-
-            data = raw.decode('utf-8').strip()
+            data = line.decode('utf-8').strip()
             if not data:
                 continue
 

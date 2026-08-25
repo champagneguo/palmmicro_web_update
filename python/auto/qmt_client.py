@@ -69,7 +69,7 @@ class QmtConnection:
 
     def command(self, cmd: str) -> str:
         """发送一条指令，读取一条回执（以 \n 结尾）"""
-        self.sock.settimeout(62)
+        self.sock.settimeout(70)  # 需大于服务端 req.wait 的 62s，避免客户端先于服务端超时
         self.sock.sendall((cmd + "\n").encode('utf-8'))
         data = b""
         while True:

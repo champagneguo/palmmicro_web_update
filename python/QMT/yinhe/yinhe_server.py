@@ -97,27 +97,28 @@ class QueryRequest:
 # ══════════════════════════════════════════════════════════════════════
 
 def handle_client(conn: socket.socket, addr):
+    buf = b""  # 接收缓冲，处理粘包（多条指令一次到达）
     try:
         while True:
             # ── 读取一条指令（以 \n 结尾），长连接复用 ──────────
-            raw = b""
             conn.settimeout(3600)  # 长连接空闲超时 1 小时，期间客户端可随时下发指令
-            try:
-                while len(raw) < 2048:
+            while b"\n" not in buf:
+                try:
                     chunk = conn.recv(512)
-                    if not chunk:
-                        raw = b""
-                        break  # EOF → 客户端断开
-                    raw += chunk
-                    if b"\n" in raw:
-                        break
-            except socket.timeout:
-                break  # 30s 无新指令，关闭连接
-
-            if not raw:
+                except socket.timeout:
+                    break
+                if not chunk:
+                    break  # EOF → 客户端断开
+                buf += chunk
+            if not buf:
                 break  # 客户端断开
+            # 提取一条指令，剩余留在 buf（防粘包）
+            if b"\n" in buf:
+                line, buf = buf.split(b"\n", 1)
+            else:
+                line, buf = buf, b""
 
-            data = raw.decode('utf-8').strip()
+            data = line.decode('utf-8').strip()
             if not data:
                 continue
 
