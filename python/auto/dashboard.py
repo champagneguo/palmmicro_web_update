@@ -123,13 +123,20 @@ td.dir.sell { color:var(--red); }
 .filter-badge { display:inline-block; font-size:12px; background:#eef2f6; color:var(--text); border:1px solid var(--border); border-radius:16px; padding:4px 12px; cursor:pointer; user-select:none; transition:all .15s; }
 .filter-badge:hover { border-color:#0969da; color:#0969da; }
 .filter-badge.active { background:#0969da; color:#fff; border-color:#0969da; }
-.order-panel { display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:12px; }
-.order-panel .title { font-weight:700; font-size:13px; color:var(--text); margin-right:2px; }
-.order-panel select, .order-panel input { padding:5px 8px; border:1px solid var(--border); border-radius:6px; font-size:13px; background:var(--card); color:var(--text); }
-.order-panel input[type=number] { width:110px; }
-.order-panel button { padding:5px 16px; background:#0969da; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer; font-weight:600; }
-.order-panel button:disabled { background:#8b949e; cursor:not-allowed; }
-.order-panel .result { font-size:12px; color:var(--muted); max-width:420px; word-break:break-all; }
+.order-btn { padding:3px 10px; border-radius:5px; font-size:12px; cursor:pointer; border:1px solid; margin:1px 2px; white-space:nowrap; }
+.order-btn.buy { background:#e6ffec; color:#1a7f37; border-color:#1a7f37; }
+.order-btn.sell { background:#ffebe9; color:#cf222e; border-color:#cf222e; }
+.order-btn:hover { opacity:0.85; }
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center; z-index:100; }
+.modal { background:var(--card); border-radius:8px; padding:20px; min-width:300px; box-shadow:0 8px 24px rgba(0,0,0,0.2); }
+.modal-title { font-size:15px; font-weight:700; margin-bottom:14px; }
+.modal-row { margin-bottom:12px; }
+.modal-row label { display:block; font-size:13px; color:var(--muted); margin-bottom:4px; }
+.modal-row input { width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:6px; font-size:14px; }
+.modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+.modal-actions button { padding:6px 16px; border-radius:6px; font-size:13px; cursor:pointer; border:none; }
+.modal-actions .cancel { background:#eef2f6; color:var(--text); }
+.modal-actions .ok { background:#0969da; color:#fff; font-weight:600; }
 </style>
 </head>
 <body>
@@ -150,28 +157,32 @@ td.dir.sell { color:var(--red); }
   </select>
   <span id="filterCount" style="font-size:12px;color:var(--muted);"></span>
 </div>
-<div class="order-panel">
-  <span class="title">下单</span>
-  <select id="orderCode"><option value="">选择代码</option></select>
-  <select id="orderAction">
-    <option value="BUY">开仓</option>
-    <option value="SELL">平仓</option>
-  </select>
-  <input id="orderVolume" type="number" placeholder="数量(股)" min="100" step="100">
-  <input id="orderPrice" type="number" placeholder="价格" step="0.001">
-  <select id="orderAccount"><option value="">默认账户</option></select>
-  <button id="orderBtn" onclick="placeOrder()">下单</button>
-  <span class="result" id="orderResult"></span>
-</div>
 <div class="table-wrap">
   <div id="main"><div class="empty">加载中...</div></div>
 </div>
 <div class="footer">每 3 秒自动刷新 · Palmmicro</div>
 
+<div class="modal-overlay" id="orderModal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">下单</div>
+    <div class="modal-row">
+      <label for="modalPrice">价格</label>
+      <input id="modalPrice" type="number" step="0.001" placeholder="价格">
+    </div>
+    <div class="modal-row">
+      <label for="modalVolume">数量(股)</label>
+      <input id="modalVolume" type="number" min="100" step="100" placeholder="数量">
+    </div>
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeModal()">取消</button>
+      <button class="ok" onclick="confirmOrder()">确认</button>
+    </div>
+  </div>
+</div>
+
 <script>
 var HEDGE_NAMES = __HEDGE_NAMES_JSON__;
 var HEDGE_GROUPS = __HEDGE_GROUPS_JSON__;
-var ACCOUNTS = __ACCOUNTS_JSON__;
 var CATEGORY_ORDER = Object.keys(HEDGE_GROUPS);
 var allRows = [];
 var sortKey = '对冲代码';
@@ -189,6 +200,7 @@ var COLUMNS = [
   {key:'价格',      type:'num'},
   {key:'对冲数量',   type:'num'},
   {key:'对冲价格',   type:'num'},
+  {key:'下单',      type:'text'},
   {key:'补充内容',   type:'text'}
 ];
 
@@ -323,6 +335,7 @@ function renderTable() {
     h += '<td>'+esc(row['价格'])+'</td>';
     h += '<td>'+esc(row['对冲数量'])+'</td>';
     h += '<td>'+esc(row['对冲价格'])+'</td>';
+    h += '<td>'+orderCell(row)+'</td>';
     h += '<td class="note-cell">'+esc(row['补充内容'])+'</td>';
     h += '</tr>';
   }
@@ -355,63 +368,62 @@ async function refresh() {
     document.getElementById('updateTime').textContent = new Date().toLocaleString('zh-CN', {hour12:false});
     renderTable();
     updateFilterCount();
-    if (!orderCodesPopulated) { populateOrderCode(); orderCodesPopulated = true; }
   } catch(e) {
     document.getElementById('main').innerHTML = '<div class="empty">连接失败，重试中...</div>';
   }
 }
-var orderCodesPopulated = false;
+var pendingOrder = null;
 
-function populateOrderCode() {
-  var sel = document.getElementById('orderCode');
-  var cur = sel.value;
-  var codes = [];
-  allRows.forEach(function(r) {
-    var c = String(r['代码'] || '').replace(/\(.*\)$/, '');
-    if (c && codes.indexOf(c) < 0) codes.push(c);
-  });
-  var opts = ['<option value="">选择代码</option>'];
-  codes.forEach(function(c) { opts.push('<option value="' + esc(c) + '">' + esc(c) + '</option>'); });
-  sel.innerHTML = opts.join('');
-  sel.value = cur;
+function stripSuffix(v) { return String(v==null?'':v).replace(/\(.*\)$/, ''); }
+
+function orderBtn(text, action, code, label, price) {
+  return '<button type="button" class="order-btn ' + (action === '买入' ? 'buy' : 'sell') + '"'
+    + ' data-action="' + esc(action) + '" data-code="' + esc(code) + '"'
+    + ' data-label="' + esc(label) + '" data-price="' + esc(price) + '"'
+    + ' onclick="openOrderModal(this)">' + esc(text) + '</button>';
 }
 
-function populateOrderAccount() {
-  var sel = document.getElementById('orderAccount');
-  var opts = ['<option value="">默认账户 (' + esc(ACCOUNTS.fund) + ')</option>'];
-  (ACCOUNTS.shareholders || []).forEach(function(a) {
-    opts.push('<option value="' + esc(a) + '">' + esc(a) + '</option>');
-  });
-  sel.innerHTML = opts.join('');
-}
-
-async function placeOrder() {
-  var code = document.getElementById('orderCode').value;
-  var action = document.getElementById('orderAction').value;
-  var volume = parseInt(document.getElementById('orderVolume').value, 10);
-  var price = parseFloat(document.getElementById('orderPrice').value);
-  var account = document.getElementById('orderAccount').value;
-  if (!code || !volume || !price) { alert('请填写代码 / 数量 / 价格'); return; }
-  if (!confirm('确认 ' + (action === 'BUY' ? '开仓' : '平仓') + ' ' + code + ' ' + volume + ' 股 @ ' + price + ' ?')) return;
-  var btn = document.getElementById('orderBtn');
-  btn.disabled = true;
-  document.getElementById('orderResult').textContent = '下单中（QMT 回执约 6~8 秒）...';
-  try {
-    var res = await fetch('/api/order' + (TOKEN ? '?token=' + encodeURIComponent(TOKEN) : ''), {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({code: code, action: action, volume: volume, price: price, account: account})
-    });
-    var data = await res.json();
-    document.getElementById('orderResult').textContent = JSON.stringify(data);
-  } catch(e) {
-    document.getElementById('orderResult').textContent = '下单失败: ' + e;
-  } finally {
-    btn.disabled = false;
+function orderCell(row) {
+  var dir = row['方向'];
+  var code = stripSuffix(row['代码']);
+  var hedge = stripSuffix(row['对冲代码']);
+  var codePrice = row['价格'];
+  var hedgePrice = row['对冲价格'];
+  if (dir === '开仓') {
+    return orderBtn('买入 ' + code, '买入', code, row['代码'], codePrice)
+         + orderBtn('卖出 ' + hedge, '卖出', hedge, row['对冲代码'], hedgePrice);
   }
+  return orderBtn('卖出 ' + code, '卖出', code, row['代码'], codePrice)
+       + orderBtn('买入 ' + hedge, '买入', hedge, row['对冲代码'], hedgePrice);
 }
 
-populateOrderAccount();
+function openOrderModal(btn) {
+  pendingOrder = {
+    action: btn.getAttribute('data-action'),
+    code: btn.getAttribute('data-code'),
+    label: btn.getAttribute('data-label')
+  };
+  document.getElementById('modalTitle').textContent = pendingOrder.action + ' ' + pendingOrder.label;
+  document.getElementById('modalPrice').value = btn.getAttribute('data-price');
+  document.getElementById('modalVolume').value = '';
+  document.getElementById('orderModal').style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('orderModal').style.display = 'none';
+  pendingOrder = null;
+}
+
+function confirmOrder() {
+  var price = document.getElementById('modalPrice').value;
+  var volume = document.getElementById('modalVolume').value;
+  if (!volume || !price) { alert('请填写数量 / 价格'); return; }
+  // 占位实现: 具体下单逻辑待接入
+  alert('下单(占位): ' + pendingOrder.action + ' ' + pendingOrder.code
+        + ' 数量=' + volume + ' 价格=' + price);
+  closeModal();
+}
+
 populateCategoryFilter();
 populateFilter();
 refresh();
@@ -587,14 +599,9 @@ setInterval(refresh, 3000);
                 # 把静态对冲代码中文名与分类注入页面, 前端直接列出无需额外请求
                 hedge_json = json.dumps(dashboard.hedge_names, ensure_ascii=False)
                 groups_json = json.dumps(dashboard.hedge_groups, ensure_ascii=False)
-                accounts_json = json.dumps({
-                    'fund': qmt_client.FUND_ACCOUNT,
-                    'shareholders': qmt_client.SHAREHOLDER_SZ + qmt_client.SHAREHOLDER_SH,
-                }, ensure_ascii=False)
                 body = (Dashboard.HTML
                         .replace('__HEDGE_NAMES_JSON__', hedge_json)
-                        .replace('__HEDGE_GROUPS_JSON__', groups_json)
-                        .replace('__ACCOUNTS_JSON__', accounts_json)).encode('utf-8')
+                        .replace('__HEDGE_GROUPS_JSON__', groups_json)).encode('utf-8')
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/html; charset=utf-8')
                 self.end_headers()
