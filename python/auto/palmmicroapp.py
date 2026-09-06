@@ -19,7 +19,7 @@ class PalmmicroApp:
 		self.running = True
 		
 		# 软件版本号
-		self.version = '0.74'
+		self.version = '0.77'
 		
 		# 创建DataFrame
 		self.df = self.create_dataframe()
@@ -224,10 +224,12 @@ class PalmmicroApp:
 		
 	def update_data(self):
 		arMktList = list(self.arIbkrStock.values())
-		for strSinaFuture in ('nf_AG0', 'nf_M0'):
-			future_stock = self.arSinaStock.get(strSinaFuture)
-			if future_stock is not None:
-				arMktList.append(future_stock)
+		ag0_stock = self.arSinaStock.get('nf_AG0')
+		if ag0_stock is not None:
+			arMktList.append(ag0_stock)
+		m0_stock = self.arSinaStock.get('nf_M0')
+		if m0_stock is not None:
+			arMktList.append(m0_stock)
 		return self._lock_and_update_data(arMktList)
 	
 	def on_closing(self):

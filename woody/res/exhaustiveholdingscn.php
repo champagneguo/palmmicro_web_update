@@ -345,7 +345,7 @@ function EchoAll()
 	
     if ($ref = $acct->EchoStockGroup())
     {
-    	if (($strInput = GetEditInput()) === false)		$strInput = strval(HOLDINGS_NETVALUE_DIFF);
+    	if (($strInput = GetEditInput()) === false)		$strInput = '1.0';
     	EchoEditInputForm('进行'.EXHAUSTIVE_HOLDINGS_DISPLAY.'计算的'.TableColumnGetNetValue().'涨跌%阈值', $strInput);
     	if ($strInput != '')
     	{
@@ -360,7 +360,7 @@ function GetMetaDescription()
 	global $acct;
 	
   	$str = $acct->GetStockDisplay().EXHAUSTIVE_HOLDINGS_DISPLAY;
-    $str .= '。仅用于不超过4个持仓用来'.STOCK_DISP_EST.'的QDII基金，通过穷举求解超定线性方程组来计算这些持仓最可能的实际比例以及总体'.STOCK_DISP_POSITION.'。';
+    $str .= '。仅用于不超过4个持仓用来'.STOCK_DISP_EST.'的QDII基金, 通过穷举求解超定线性方程组来计算这些持仓最可能的实际比例以及总体'.STOCK_DISP_POSITION.'。';
     return CheckMetaDescription($str);
 }
 

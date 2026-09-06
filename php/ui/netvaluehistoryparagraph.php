@@ -59,6 +59,7 @@ function _adjustAdminPositionDisplay($ref, $strPosition)
 	return GetOnClickLink(PATH_STOCK.'submitholdings.php?symbol='.$ref->GetSymbol().'&fundposition='.$strPosition, "确认使用{$strPosition}作为".STOCK_DISP_EST.STOCK_DISP_POSITION.'？', $strPosition);
 }
 
+const POS_NETVALUE_DIFF = 4.0;
 function EchoNetValueItem($csv, $ref, $cny_ref, $est_ref, $strDate, $strNetValue, $strPrevDate, $fInput = POS_NETVALUE_DIFF, $bAdmin = false)
 {
 	$bWritten = false;

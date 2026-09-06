@@ -100,7 +100,7 @@ function GetMetaDescription()
 	global $acct;
 	
   	$str = $acct->GetStockDisplay().FUND_POSITION_DISPLAY;
-    $str .= '。仅用于美股QDII和部分混合QDII基金，寻找A股基金净值连续几天累计涨跌超过某个阈值例如4%的机会，测算基金的实际表现出来的持仓仓位。';
+    $str .= '。仅用于美股QDII和部分混合QDII基金, 寻找A股基金净值连续几天累计涨跌超过某个阈值例如4%的机会，测算基金的实际表现出来的持仓仓位。';
     return CheckMetaDescription($str);
 }
 

@@ -177,7 +177,6 @@ function _errorHandler($errno, $errstr, $errfile, $errline)
    		$strDebug = "$strSubject $str ($strCount)";
     
    		$str .= $strNewLine.GetExternalLink(UrlGetServer().UrlGetCur());
-		// if (isset($_SESSION['SESS_ID']))		$str .= $strNewLine.GetMemberLink($_SESSION['SESS_ID']);	// need MySQL successful
 
 		$strIp = UrlGetIp();
 		$str .= $strNewLine.GetVisitorLink($strIp);

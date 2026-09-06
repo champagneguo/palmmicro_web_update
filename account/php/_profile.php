@@ -190,7 +190,10 @@ function GetTitle($bChinese = true)
 
 function _changePassword($strPassword, $strPassword2)
 {
-	$member = SqlGetMemberById($_SESSION['SESS_ID']);
+    $strMemberId = isset($_SESSION['SESS_ID']) ? $_SESSION['SESS_ID'] : false;
+    if ($strMemberId == false)		return false;
+
+	$member = SqlGetMemberById($strMemberId);
 	$arErrMsg = [];
 
 	// Input Validations
