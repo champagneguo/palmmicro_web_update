@@ -69,11 +69,19 @@ Write-Host ""
 # === 检查环境 ===
 Write-Host "[3/5] 检查运行环境..." -ForegroundColor Yellow
 
-if (Test-Path "D:\new_tdx64\PYPlugins\user\tqcenter.py") {
-    Write-Host "  通达信插件: OK" -ForegroundColor Green
-} else {
-    Write-Host "  [警告] 通达信 Python 插件未找到: D:\new_tdx64\PYPlugins\user\tqcenter.py" -ForegroundColor Red
-    Write-Host "  请确认通达信64位已安装到 D:\new_tdx64"
+$tdxFound = $false
+$tdxCandidates = @("D:\new_tdx_test", "D:\new_tdx64")
+foreach ($tdxDir in $tdxCandidates) {
+    $tdxPlugin = Join-Path $tdxDir "PYPlugins\user\tqcenter.py"
+    if (Test-Path $tdxPlugin) {
+        Write-Host "  通达信插件: OK ($tdxDir)" -ForegroundColor Green
+        $tdxFound = $true
+        break
+    }
+}
+if (-not $tdxFound) {
+    Write-Host "  [警告] 通达信 Python 插件未找到，已检查: $($tdxCandidates -join ', ')" -ForegroundColor Red
+    Write-Host "  请确认通达信64位已安装到 new_tdx_test 或 new_tdx64"
 }
 
 $ibkr = netstat -ano | Select-String ":7497.*ESTABLISHED"

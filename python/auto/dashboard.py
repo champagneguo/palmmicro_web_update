@@ -66,9 +66,10 @@ class Dashboard:
         'hf_NQ': '纳指期货(小)',
         'hf_SI': '白银期货',
     }
-    # 对冲代码分类 (用于下拉分组与筛选)
+    # 对冲代码分类 (用于分组筛选)
     HEDGE_CATEGORIES = {
-        'XOP油气': ['DRIP', 'GUSH', 'IEO', 'USO', 'XLE', 'XOP', 'hf_CL'],
+        '原油': ['USO', 'hf_CL'],
+        'XOP油气': ['DRIP', 'GUSH', 'IEO', 'XLE', 'XOP'],
         '黄金白银': ['GLD', 'SLV', 'nf_AG0', 'hf_GC', 'hf_SI'],
         '其他': ['INDA', 'KWEB', 'QQQ', 'RSPH', 'SPY', 'XBI', 'XLY', 'hf_ES', 'hf_NQ'],
     }
@@ -118,8 +119,10 @@ td.dir.sell { color:var(--red); }
 .filter-bar label { font-size:13px; font-weight:600; color:var(--muted); }
 .filter-bar select { padding:4px 8px; border:1px solid var(--border); border-radius:6px; font-size:13px; background:var(--card); color:var(--text); cursor:pointer; }
 .filter-bar select:focus { outline:2px solid #0969da; outline-offset:-1px; }
-.filter-badge { display:inline-block; font-size:11px; background:#ddf4ff; color:#0969da; border-radius:10px; padding:1px 8px; cursor:pointer; }
-.filter-badge.active { background:#0969da; color:#fff; }
+.filter-badges { display:inline-flex; gap:6px; flex-wrap:wrap; }
+.filter-badge { display:inline-block; font-size:12px; background:#eef2f6; color:var(--text); border:1px solid var(--border); border-radius:16px; padding:4px 12px; cursor:pointer; user-select:none; transition:all .15s; }
+.filter-badge:hover { border-color:#0969da; color:#0969da; }
+.filter-badge.active { background:#0969da; color:#fff; border-color:#0969da; }
 .order-panel { display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:12px; }
 .order-panel .title { font-weight:700; font-size:13px; color:var(--text); margin-right:2px; }
 .order-panel select, .order-panel input { padding:5px 8px; border:1px solid var(--border); border-radius:6px; font-size:13px; background:var(--card); color:var(--text); }
@@ -139,10 +142,8 @@ td.dir.sell { color:var(--red); }
   </div>
 </div>
 <div class="filter-bar">
-  <label for="categoryFilter">大类:</label>
-  <select id="categoryFilter" onchange="applyCategory(this.value)">
-    <option value="">全部</option>
-  </select>
+  <label>大类:</label>
+  <span id="categoryFilter" class="filter-badges"></span>
   <label for="hedgeFilter">对冲代码:</label>
   <select id="hedgeFilter" onchange="applyFilter(this.value)">
     <option value="">全部</option>
@@ -153,8 +154,8 @@ td.dir.sell { color:var(--red); }
   <span class="title">下单</span>
   <select id="orderCode"><option value="">选择代码</option></select>
   <select id="orderAction">
-    <option value="BUY">买入</option>
-    <option value="SELL">卖出</option>
+    <option value="BUY">开仓</option>
+    <option value="SELL">平仓</option>
   </select>
   <input id="orderVolume" type="number" placeholder="数量(股)" min="100" step="100">
   <input id="orderPrice" type="number" placeholder="价格" step="0.001">
@@ -235,9 +236,15 @@ function updateFilterCount() {
     (filterCategory || filterHedge) ? '(筛选后 ' + filtered.length + ' / ' + allRows.length + ' 行)' : '';
 }
 
-function applyCategory(value) {
-  filterCategory = value;
+function setCategory(btn) {
+  filterCategory = btn.getAttribute('data-cat');
   filterHedge = '';  // 切换大类时重置具体对冲代码
+  // 更新大类按钮高亮
+  var btns = document.querySelectorAll('#categoryFilter .filter-badge');
+  for (var i = 0; i < btns.length; i++) {
+    var c = btns[i].getAttribute('data-cat');
+    btns[i].className = 'filter-badge' + (c === filterCategory ? ' active' : '');
+  }
   populateFilter();
   updateFilterCount();
   renderTable();
@@ -250,13 +257,13 @@ function applyFilter(value) {
 }
 
 function populateCategoryFilter() {
-  var sel = document.getElementById('categoryFilter');
-  var opts = ['<option value="">全部</option>'];
+  var box = document.getElementById('categoryFilter');
+  var btns = ['<button type="button" class="filter-badge active" data-cat="" onclick="setCategory(this)">全部</button>'];
   for (var i = 0; i < CATEGORY_ORDER.length; i++) {
     var cat = CATEGORY_ORDER[i];
-    opts.push('<option value="' + esc(cat) + '">' + esc(cat) + '</option>');
+    btns.push('<button type="button" class="filter-badge" data-cat="' + esc(cat) + '" onclick="setCategory(this)">' + esc(cat) + '</button>');
   }
-  sel.innerHTML = opts.join('');
+  box.innerHTML = btns.join('');
 }
 
 function populateFilter() {
@@ -305,7 +312,7 @@ function renderTable() {
     var row = rows[r];
     var isNeg = row['折价'] || valNum(row['溢价']) < 0;
     var pctClass = isNeg ? 'neg' : 'pos';
-    var dirClass = row['方向'] === '买入' ? 'buy' : 'sell';
+    var dirClass = row['方向'] === '开仓' ? 'buy' : 'sell';
     h += '<tr>';
     h += '<td>'+esc(row['代码'])+'</td>';
     h += '<td>'+esc(row['对冲代码'])+'</td>';
@@ -385,7 +392,7 @@ async function placeOrder() {
   var price = parseFloat(document.getElementById('orderPrice').value);
   var account = document.getElementById('orderAccount').value;
   if (!code || !volume || !price) { alert('请填写代码 / 数量 / 价格'); return; }
-  if (!confirm('确认 ' + (action === 'BUY' ? '买入' : '卖出') + ' ' + code + ' ' + volume + ' 股 @ ' + price + ' ?')) return;
+  if (!confirm('确认 ' + (action === 'BUY' ? '开仓' : '平仓') + ' ' + code + ' ' + volume + ' 股 @ ' + price + ' ?')) return;
   var btn = document.getElementById('orderBtn');
   btn.disabled = true;
   document.getElementById('orderResult').textContent = '下单中（QMT 回执约 6~8 秒）...';

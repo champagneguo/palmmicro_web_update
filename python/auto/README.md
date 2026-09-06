@@ -12,7 +12,7 @@ Palmmicro 企业微信数据本地部署软件，集成了通达信、新浪财�
 │                                                   │
 │  ┌──────────┐  ┌──────────┐  ┌───────────────┐  │
 │  │ 通达信 TDX │  │ 新浪 Sina │  │  IBKR TWS     │  │
-│  │ D:\new_tdx64│ │ 实时汇率  │  │  Gateway 7497 │  │
+│  │ D:\new_tdx* │ │ 实时汇率  │  │  Gateway 7497 │  │
 │  └────┬─────┘  └────┬─────┘  └──────┬────────┘  │
 │       │             │               │            │
 │       └──────┬──────┘───────────────┘            │
@@ -34,7 +34,7 @@ Palmmicro 企业微信数据本地部署软件，集成了通达信、新浪财�
 | 组件 | 说明 |
 |------|------|
 | Python | 3.12+ |
-| 通达信 | 64位，安装于 `D:\new_tdx64`，已导入 `Palmmicro.EBK` 板块文件 |
+| 通达信 | 64位，安装于 `D:\new_tdx_test` 或 `D:\new_tdx64`（自动检测），已导入 `Palmmicro.EBK` 板块文件 |
 | IBKR | TWS 或 IB Gateway 已启动，API 端口 7497 |
 | pip 依赖 | `dtale`, `pandas`, `requests`, `ibapi` |
 
@@ -70,12 +70,12 @@ BOT_TOKEN = "your-token-here"
 
 ### 3. 确认通达信路径
 
-通达信 64 位必须安装到 `D:\new_tdx64`，且 Python 插件 `tqcenter.py` 位于 `D:\new_tdx64\PYPlugins\user\`。
+通达信 64 位可安装到 `D:\new_tdx_test` 或 `D:\new_tdx64`，且 Python 插件 `tqcenter.py` 位于对应目录的 `PYPlugins\user\` 下。程序启动时会自动检测候选目录（`new_tdx_test` 优先，其次 `new_tdx64`）。
 
-如果路径不同，修改 `palmmicrostock.py` 第 440 行：
+如需更换/新增路径，修改 `palmmicrostock.py` 中 `TqInit` 的候选目录列表：
 
 ```python
-sys.path.append('D:/new_tdx64/PYPlugins/user')
+for strTdxDir in ('D:/new_tdx_test', 'D:/new_tdx64'):
 ```
 
 ### 4. 导入板块文件

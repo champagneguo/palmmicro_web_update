@@ -223,8 +223,8 @@ class PalmmicroStock:
 	@staticmethod
 	def GetTypeDisplay(strType: str) -> str:
 		if strType == 'SELL':
-			return '卖出'
-		return '买入'
+			return '平仓'
+		return '开仓'
 
 	@staticmethod
 	def GetPeerType(strType: str) -> str:
@@ -437,7 +437,13 @@ class TdxStock(PalmmicroStock):
 
 	@classmethod
 	def TqInit(cls, strBlockCode: str = 'PLMM'):
-		sys.path.append('D:/new_tdx64/PYPlugins/user')
+		# 自动检测通达信安装路径(兼容 new_tdx_test / new_tdx64 等目录)
+		for strTdxDir in ('D:/new_tdx_test', 'D:/new_tdx64'):
+			strPluginDir = f'{strTdxDir}/PYPlugins/user'
+			if os.path.isfile(f'{strPluginDir}/tqcenter.py'):
+				sys.path.append(strPluginDir)
+				print(f'使用通达信插件目录: {strPluginDir}')
+				break
 		try:
 			from tqcenter import tq	# type: ignore
 			tq.initialize(__file__)
