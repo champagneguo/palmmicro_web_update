@@ -148,7 +148,7 @@ class PalmmicroApp:
 		display_names.remove('折价')
 		
 		# 列宽度设置
-		col_widths = [70, 74, 36, 60, 60, 80, 80, 80, 80, 300]
+		col_widths = [70, 74, 36, 60, 60, 80, 80, 80, 80, 300, 90]
 		
 		# 创建Treeview
 		self.tree = ttk.Treeview(tree_frame, columns = columns, show = 'headings', 
@@ -184,7 +184,7 @@ class PalmmicroApp:
 
 		filtered_df = self.pdf.GetDisplayDataFrame()
 		for row_num, (index, row) in enumerate(filtered_df.iterrows()):			
-			item_id = self.tree.insert('', tk.END, values = (row.iloc[0], row.iloc[1], row.iloc[2], row.iloc[3], row.iloc[4], row.iloc[6], row.iloc[7], row.iloc[8], row.iloc[9], row.iloc[10]))
+			item_id = self.tree.insert('', tk.END, values = (row.iloc[0], row.iloc[1], row.iloc[2], row.iloc[3], row.iloc[4], row.iloc[6], row.iloc[7], row.iloc[8], row.iloc[9], row.iloc[10], row.iloc[11]))
 
 			# 如果Percent为负数，设置该行为红色
 			if row.iloc[5]:

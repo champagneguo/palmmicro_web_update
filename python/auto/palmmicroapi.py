@@ -468,7 +468,7 @@ class PalmmicroDataFrame:
 		return self.df
 	
 	@staticmethod
-	def _build_row(time = '00:00:00', estprice = None, symbolqty = 0, symbolprice = 0.0, hedgeqty = 0, hedgeprice = 0.0, note = ''):
+	def _build_row(time = '00:00:00', estprice = None, symbolqty = 0, symbolprice = 0.0, hedgeqty = 0, hedgeprice = 0.0, note = '', tdxpremium = None):
 		if estprice is None or abs(estprice) < 0.000001:
 			fPercent = 0.0
 		else:
@@ -479,7 +479,8 @@ class PalmmicroDataFrame:
 				'SymbolPrice': symbolprice,
 				'HedgeSize': hedgeqty,
 				'HedgePrice': hedgeprice,
-				'Note': note
+				'Note': note,
+				'TdxPremium': tdxpremium
 			   }
 	
 	def GetData(self, symbol: str, hedge: str, side: str) -> pd.Series:
@@ -507,7 +508,7 @@ class PalmmicroDataFrame:
 				if usdcny_stock is not None:
 					arSrcPrice |= usdcny_stock.GetSymbolPrice()
 			fEst = self.api.EstNetValue(strSymbol, arSrcPrice)
-			row = self._build_row(strTime, fEst, iSize, fPrice, arQuantity[strMktSymbol], arSrcPrice[strMktSymbol])
+			row = self._build_row(strTime, fEst, iSize, fPrice, arQuantity[strMktSymbol], arSrcPrice[strMktSymbol], tdxpremium = stock.get_value('TDXPremium'))
 			return self.UpdateData(strSymbol, strMktSymbol, strType, row)
 		return False
 	
@@ -556,7 +557,7 @@ class PalmmicroDataFrame:
 				iMktSize = arQuantity[strMktSymbol]
 			if iMktSize > 0:
 				fEst = self.api.EstNetValue(strSymbol, arSrcPrice)
-				row = self._build_row(strTime, fEst, iSize, fPrice, iMktSize, arSrcPrice[strMktSymbol], strDebug)
+				row = self._build_row(strTime, fEst, iSize, fPrice, iMktSize, arSrcPrice[strMktSymbol], strDebug, tdxpremium = stock.get_value('TDXPremium'))
 				return self.UpdateData(strSymbol, strMktSymbol, strType, row)
 		return False
 	
@@ -601,6 +602,9 @@ class PalmmicroDataFrame:
 		# 格式化 Percent 为百分比字符串
 		display_df['Percent'] = display_df['Percent'].apply(lambda x: f"{x * 100.0:.2f}%")
 	
+		# 格式化 TdxPremium 为百分比字符串(通达信溢价率), 无数据显示空
+		display_df['TdxPremium'] = display_df['TdxPremium'].apply(lambda x: f"{x * 100.0:.2f}%" if pd.notna(x) else '')
+
 		# 格式化 SymbolPrice 为三位小数
 		display_df['SymbolPrice'] = display_df['SymbolPrice'].apply(lambda x: f"{x:.3f}")
 	
@@ -628,10 +632,10 @@ class PalmmicroDataFrame:
 		# 删除辅助列
 		display_df = display_df.drop(columns=['_orig_symbol'])
 	
-		# 按指定顺序排列列，IsNegative 放在 Percent 后面
-		columns_order = ['Symbol', 'Hedge', 'Type', 'Time', 'Percent', 'IsNegative', 'SymbolSize', 'SymbolPrice', 'HedgeSize', 'HedgePrice', 'Note']
+		# 按指定顺序排列列，IsNegative 放在 Percent 后面, TdxPremium 放末尾
+		columns_order = ['Symbol', 'Hedge', 'Type', 'Time', 'Percent', 'IsNegative', 'SymbolSize', 'SymbolPrice', 'HedgeSize', 'HedgePrice', 'Note', 'TdxPremium']
 		display_df = display_df[columns_order]
-		columns_order = ['代码', '对冲代码', '方向', '时间', '溢价', '折价', '数量', '价格', '对冲数量', '对冲价格', '补充内容']
+		columns_order = ['代码', '对冲代码', '方向', '时间', '溢价', '折价', '数量', '价格', '对冲数量', '对冲价格', '补充内容', '通达信溢价率']
 		display_df.columns = columns_order
 
 		# 返回包含指定列顺序的完整 DataFrame

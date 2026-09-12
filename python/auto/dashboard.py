@@ -201,7 +201,8 @@ var COLUMNS = [
   {key:'对冲数量',   type:'num'},
   {key:'对冲价格',   type:'num'},
   {key:'下单',      type:'text'},
-  {key:'补充内容',   type:'text'}
+  {key:'补充内容',   type:'text'},
+  {key:'通达信溢价率', type:'pct'}
 ];
 
 function esc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -324,6 +325,8 @@ function renderTable() {
     var row = rows[r];
     var isNeg = row['折价'] || valNum(row['溢价']) < 0;
     var pctClass = isNeg ? 'neg' : 'pos';
+    var tdx = row['通达信溢价率'];
+    var tdxClass = (tdx && tdx !== '') ? (valNum(tdx) < 0 ? 'neg' : 'pos') : '';
     var dirClass = row['方向'] === '开仓' ? 'buy' : 'sell';
     h += '<tr>';
     h += '<td>'+esc(row['代码'])+'</td>';
@@ -337,6 +340,7 @@ function renderTable() {
     h += '<td>'+esc(row['对冲价格'])+'</td>';
     h += '<td>'+orderCell(row)+'</td>';
     h += '<td class="note-cell">'+esc(row['补充内容'])+'</td>';
+    h += '<td class="pct '+tdxClass+'">'+esc(row['通达信溢价率'])+'</td>';
     h += '</tr>';
   }
   h += '</tbody></table>';

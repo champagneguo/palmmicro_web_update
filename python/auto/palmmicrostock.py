@@ -384,15 +384,25 @@ class TdxStock(PalmmicroStock):
 	def Update(self) -> None:
 		try:
 			if self.tq is not None:
-				data_dict = self.tq.get_market_snapshot(self.GetName(), ['ErrorId', 'Now', 'Buyp', 'Buyv', 'Sellp', 'Sellv'])
+				data_dict = self.tq.get_market_snapshot(self.GetName(), ['ErrorId', 'Now', 'Jjjz', 'Buyp', 'Buyv', 'Sellp', 'Sellv'])
 		except Exception as e:
 			print(f"tq.get_market_snapshot异常: {e}")
 			return
 		#print(data_dict)
-		if data_dict.get('ErrorId') == '0':	
+		if data_dict.get('ErrorId') == '0':
 			self.SetPrice(float(data_dict['Buyp'][0]), 'BUY')
 			self.SetPrice(float(data_dict['Sellp'][0]), 'SELL')
-			self.SetPrice(float(data_dict['Now']))
+			fNow = float(data_dict['Now'])
+			self.SetPrice(fNow)
+			# 通达信溢价率: (最新价 - 基金净值) / 基金净值, 与通达信 More_YJL 字段口径一致
+			fJjjz = data_dict.get('Jjjz')
+			if fJjjz is not None and fJjjz != '':
+				try:
+					fJjjz = float(fJjjz)
+					if fJjjz > 0:
+						self.set_value('TDXPremium', (fNow - fJjjz) / fJjjz)
+				except (TypeError, ValueError):
+					pass
 			iBuy = int(data_dict['Buyv'][0])
 			iSell = int(data_dict['Sellv'][0])
 			if self.IsSymbolA(self.GetSymbol()):
