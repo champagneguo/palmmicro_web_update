@@ -525,6 +525,258 @@ class TdxStock(PalmmicroStock):
 		#cls._refresh_cache('QH')
 		"""
 
+class TdxFutureEtfStock(TdxStock):
+	"""通达信 FUTURESETF 板块(期货ETF)行情, 用于 dashboard 展示通达信接口数据与溢价率"""
+	arStock = {}
+	# 期货ETF 中文名映射, 未收录的代码回退显示为代码本身
+	NAME_MAP = {
+		'SZ159985': '豆粕ETF',
+		'SZ159980': '有色金属ETF',
+		'SZ159981': '能源化工ETF',
+	}
+	# 底层主力合约(ETF 对应的期货品种主力合约); 有色/能化跟踪多品种指数, 无单一主力合约
+	UNDERLYING_MAP = {
+		'SZ159985': '豆粕主力',
+		'SZ159980': '铜/铝/锌/铅/镍/锡主力',
+		'SZ159981': 'PTA/甲醇/动力煤/玻璃主力',
+	}
+	# ETF 代码 → 主力合约内部代码(新浪 nf_ 主力连续), 用于显示实时主力价格
+	MAIN_CONTRACT_MAP = {
+		'SZ159985': 'nf_M0',
+	}
+	# 主力价格数据源: {内部代码: PalmmicroStock}, 由 app 启动时注入 SinaStock.arStock
+	main_price_source = {}
+	# 历史溢价率序列缓存: {strSymbol: {'series': [premium...], 'ts': monotonic}}
+	_history_cache = {}
+
+	def __init__(self, strName):
+		super().__init__(strName)
+		strSymbol = self.GetSymbol()
+		self._data['Name'] = self.NAME_MAP.get(strSymbol, strSymbol)
+		self._data['Underlying'] = self.UNDERLYING_MAP.get(strSymbol, '')
+		self._data['Now'] = None
+		self._data['Jjjz'] = None
+		self._data['Premium'] = None
+		self._data['Time'] = ''
+
+	def Update(self) -> None:
+		"""拉取通达信快照, 保存最新价/基金净值/溢价率/买卖盘"""
+		if self.tq is None:
+			return
+		try:
+			data_dict = self.tq.get_market_snapshot(self.GetName(), ['ErrorId', 'Now', 'Jjjz', 'Buyp', 'Buyv', 'Sellp', 'Sellv'])
+		except Exception as e:
+			print(f"tq.get_market_snapshot(FUTURESETF)异常: {e}")
+			return
+		if data_dict.get('ErrorId') != '0':
+			return
+		try:
+			fNow = float(data_dict['Now'])
+			self._data['Now'] = fNow
+			self._data['Buyp'] = float(data_dict['Buyp'][0])
+			self._data['Sellp'] = float(data_dict['Sellp'][0])
+			self._data['Buyv'] = int(data_dict['Buyv'][0])
+			self._data['Sellv'] = int(data_dict['Sellv'][0])
+		except (KeyError, TypeError, ValueError, IndexError):
+			pass
+		fJjjz = data_dict.get('Jjjz')
+		if fJjjz is not None and fJjjz != '':
+			try:
+				fJjjz = float(fJjjz)
+				self._data['Jjjz'] = fJjjz
+				if fJjjz > 0 and self._data.get('Now') is not None:
+					# 通达信溢价率: (最新价 - 基金净值) / 基金净值, 与通达信 More_YJL 字段口径一致
+					self._data['Premium'] = (self._data['Now'] - fJjjz) / fJjjz
+			except (TypeError, ValueError):
+				pass
+		self._data['Time'] = datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%H:%M:%S')
+
+	@classmethod
+	def TqInitFutureEtf(cls, strBlockCode: str = 'FUTURESETF'):
+		"""初始化 FUTURESETF 板块, 复用 TdxStock 已建立的通达信连接"""
+		cls.tq = TdxStock.tq
+		if cls.tq is None:
+			print('⚠️ 通达信连接未建立, FUTURESETF 板块不可用')
+			return cls.arStock
+		try:
+			block_stocks = cls.tq.get_stock_list_in_sector(strBlockCode, 1)
+		except Exception as e:
+			print(f"获取 {strBlockCode} 板块成分股异常: {e}")
+			return cls.arStock
+		if not block_stocks:
+			print(f'没有找到通达信自定义板块 {strBlockCode}, dashboard 期货ETF表格将为空。')
+			return cls.arStock
+		ar = []
+		for strName in block_stocks:
+			stock = cls(strName)
+			strSymbol = stock.GetSymbol()
+			cls.arStock[strSymbol] = stock
+			ar.append(strName)
+		try:
+			sub_hq = cls.tq.subscribe_hq(ar, cls.TqFutureEtfCallback)
+			cls.TqDebug(sub_hq)
+		except Exception as e:
+			print(f"订阅 {strBlockCode} 行情异常: {e}")
+		return cls.arStock
+
+	@classmethod
+	def TqFutureEtfCallback(cls, data_str):
+		code_json = json.loads(data_str)
+		strSymbol = cls.ConvertTdxSymbol(code_json.get('Code'))
+		stock = cls.arStock.get(strSymbol)
+		if stock is not None:
+			stock.Update()
+
+	@classmethod
+	def GetDisplayDataFrame(cls) -> pd.DataFrame:
+		"""返回 dashboard 展示用的 DataFrame(中文列名, 溢价率降序)"""
+		columns = ['代码', '底层主力合约', '主力价格', '最新价', '基金净值', '溢价率', '历史百分位', '买一价', '卖一价', '买一量', '卖一量', '更新时间', '报告链接']
+		rows = []
+		for strSymbol, stock in cls.arStock.items():
+			data = stock.get_all_data()
+			fMain = None
+			strMain = cls.MAIN_CONTRACT_MAP.get(strSymbol)
+			if strMain:
+				main_stock = cls.main_price_source.get(strMain)
+				if main_stock is not None:
+					fMain = main_stock.get_value('LAST_price')
+			fPct = cls.GetPremiumPercentile(strSymbol)
+			rows.append({
+				'代码': f"{strSymbol}({data.get('Name', strSymbol)})",
+				'底层主力合约': data.get('Underlying', ''),
+				'主力价格': fMain,
+				'最新价': data.get('Now'),
+				'基金净值': data.get('Jjjz'),
+				'溢价率': data.get('Premium'),
+				'历史百分位': f"{fPct:.1f}%" if fPct is not None else '',
+				'买一价': data.get('Buyp'),
+				'卖一价': data.get('Sellp'),
+				'买一量': data.get('Buyv'),
+				'卖一量': data.get('Sellv'),
+				'更新时间': data.get('Time', ''),
+				'报告链接': f"https://fundf10.eastmoney.com/jjgg_{strSymbol[-6:]}_3.html",
+			})
+		if not rows:
+			return pd.DataFrame(columns = columns)
+		# 溢价率降序, 无溢价率的排最后
+		rows.sort(key = lambda r: (not isinstance(r['溢价率'], (int, float)), -(r['溢价率'] if isinstance(r['溢价率'], (int, float)) else 0.0)))
+		df = pd.DataFrame(rows)
+		# None 在 DataFrame 中会变成 NaN(仍是 float), 需用 pd.isna 一并排除
+		def _num(x):
+			return isinstance(x, (int, float)) and not pd.isna(x)
+		for col in ('最新价', '基金净值', '买一价', '卖一价'):
+			df[col] = df[col].apply(lambda x: f"{x:.3f}" if _num(x) else '')
+		df['主力价格'] = df['主力价格'].apply(lambda x: f"{x:.2f}" if _num(x) else '')
+		df['溢价率'] = df['溢价率'].apply(lambda x: f"{x * 100.0:.2f}%" if _num(x) else '')
+		for col in ('买一量', '卖一量'):
+			df[col] = df[col].apply(lambda x: str(int(x)) if _num(x) else '')
+		return df
+
+	@classmethod
+	def GetHistoricalPremium(cls, strSymbol, iCount: int = 250):
+		"""返回历史溢价率序列 [{date, price, nav, premium}], 溢价率 = 日K收盘 / 天天基金单位净值 - 1"""
+		arNav = cls._fetch_nav_history(strSymbol[-6:], iCount)
+		arPrice = cls._fetch_close_history(strSymbol, iCount)
+		if not arNav:
+			print(f"历史溢价率 {strSymbol}: 净值数据为空(天天基金)")
+		if not arPrice:
+			print(f"历史溢价率 {strSymbol}: 价格数据为空(新浪日K)")
+		series = []
+		for date in sorted(set(arNav) & set(arPrice)):
+			fNav = arNav[date]
+			if fNav <= 0:
+				continue
+			fPrice = arPrice[date]
+			series.append({
+				'date': date,
+				'price': round(fPrice, 4),
+				'nav': round(fNav, 4),
+				'premium': round(fPrice / fNav - 1.0, 6),
+			})
+		return series
+
+	@staticmethod
+	def _fetch_nav_history(strFund, iCount):
+		"""天天基金历史单位净值(分页, 每页最多20条), 返回 {date(YYYY-MM-DD): nav}"""
+		ar = {}
+		page_size = 20
+		pages = (iCount + page_size - 1) // page_size
+		for page in range(1, pages + 1):
+			try:
+				resp = requests.get(
+					'http://api.fund.eastmoney.com/f10/lsjz',
+					params = {'fundCode': strFund, 'pageIndex': page, 'pageSize': page_size},
+					headers = {'Referer': 'http://fundf10.eastmoney.com/'},
+					timeout = 15
+				)
+				data = resp.json()
+			except Exception as e:
+				print(f"天天基金历史净值获取失败(page {page}): {e}")
+				break
+			lst = (data.get('Data') or {}).get('LSJZList') or []
+			if not lst:
+				break
+			for row in lst:
+				fNav = row.get('DWJZ')
+				if fNav in (None, ''):
+					continue
+				try:
+					ar[str(row.get('FSRQ'))] = float(fNav)
+				except (TypeError, ValueError):
+					continue
+			if len(lst) < page_size:
+				break
+		return ar
+
+	@staticmethod
+	def _fetch_close_history(strSymbol, iCount):
+		"""新浪日K收盘价, 返回 {date(YYYY-MM-DD): close}"""
+		try:
+			resp = requests.get(
+				'https://quotes.sina.cn/cn/api/json_v2.php/CN_MarketDataService.getKLineData',
+				params = {'symbol': strSymbol.lower(), 'scale': 240, 'ma': 'no', 'datalen': iCount},
+				headers = {'Referer': 'https://finance.sina.com.cn'},
+				timeout = 15
+			)
+			data = resp.json()
+		except Exception as e:
+			print(f"新浪日K获取失败: {e}")
+			return {}
+		ar = {}
+		for row in data if isinstance(data, list) else []:
+			try:
+				ar[str(row.get('day'))] = float(row.get('close'))
+			except (TypeError, ValueError):
+				continue
+		return ar
+
+	@classmethod
+	def _get_history_premiums(cls, strSymbol, iCount: int = 250, ttl: int = 3600):
+		"""缓存的历史溢价率序列(约1小时有效), 返回 [premium, ...]"""
+		now = time.monotonic()
+		entry = cls._history_cache.get(strSymbol)
+		if entry and now - entry['ts'] < ttl:
+			return entry['series']
+		series = cls.GetHistoricalPremium(strSymbol, iCount)
+		premiums = [r['premium'] for r in series if isinstance(r.get('premium'), (int, float))]
+		cls._history_cache[strSymbol] = {'series': premiums, 'ts': time.monotonic()}
+		return premiums
+
+	@classmethod
+	def GetPremiumPercentile(cls, strSymbol, iCount: int = 250):
+		"""当前溢价率在历史分布中的百分位(0~100), 用于评估高估/低估; 无数据返回 None"""
+		stock = cls.arStock.get(strSymbol)
+		if stock is None:
+			return None
+		cur = stock.get_value('Premium')
+		if not isinstance(cur, (int, float)):
+			return None
+		premiums = cls._get_history_premiums(strSymbol, iCount)
+		if not premiums:
+			return None
+		below = sum(1 for p in premiums if p < cur)
+		return round(below / len(premiums) * 100.0, 1)
+
 class PalmmicroWrapper(EWrapper):
 	def __init__(self, client, arMapping = None):
 		self.client = client

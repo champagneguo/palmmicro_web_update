@@ -6,7 +6,7 @@ import tkinter as tk
 
 from tkinter import ttk, PhotoImage
 
-from palmmicrostock import PalmmicroStock, SinaStock, TdxStock, IbkrStock
+from palmmicrostock import PalmmicroStock, SinaStock, TdxStock, TdxFutureEtfStock, IbkrStock
 from palmmicroapi import PalmmicroAPI, PalmmicroDataFrame
 from palmmicrosocket import PalmmicroSocket
 from dashboard import Dashboard
@@ -63,7 +63,12 @@ class PalmmicroApp:
 				self._debug('没有找到通达信自定义板块PLMM, 请先在自定义板块设置中导入Palmmicro.EBK文件。')
 				return None
 
+		# 初始化通达信 FUTURESETF 板块(期货ETF), 用于 dashboard 展示溢价率等接口数据
+		self.arFutureEtfStock = TdxFutureEtfStock.TqInitFutureEtf()
+
 		self.arSinaStock = SinaStock.TaskInit()
+		# 注入新浪主力连续数据源, 供 FUTURESETF 表格显示主力价格(如豆粕 nf_M0)
+		TdxFutureEtfStock.main_price_source = self.arSinaStock
 
 		try:
 			from _mytoken import BOT_TOKEN
@@ -94,7 +99,7 @@ class PalmmicroApp:
 					   	   )
 		self.d.open_browser()
 		# 启动 Web Dashboard :40006
-		self.dashboard = Dashboard(self.pdf)
+		self.dashboard = Dashboard(self.pdf, future_etf_stock = TdxFutureEtfStock)
 		self.dashboard.start()
 		# 建立 QMT 持久连接（启动时一次，后续下单直接复用）
 		qmt_client.connect()

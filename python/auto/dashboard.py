@@ -160,6 +160,16 @@ td.dir.sell { color:var(--red); }
 <div class="table-wrap">
   <div id="main"><div class="empty">加载中...</div></div>
 </div>
+
+<div class="header" style="margin-top:28px; margin-bottom:12px;">
+  <h1 style="font-size:16px;">通达信 FUTURESETF 期货ETF溢价率
+    <a href="/history" id="histLink" style="font-size:12px; font-weight:600; color:#0969da; margin-left:12px; text-decoration:none;">历史溢价率 →</a>
+  </h1>
+</div>
+<div class="table-wrap">
+  <div id="futureEtf"><div class="empty">加载中...</div></div>
+</div>
+
 <div class="footer">每 3 秒自动刷新 · Palmmicro</div>
 
 <div class="modal-overlay" id="orderModal">
@@ -428,10 +438,80 @@ function confirmOrder() {
   closeModal();
 }
 
+function renderFutureEtf(rows) {
+  var box = document.getElementById('futureEtf');
+  if (!rows.length) {
+    box.innerHTML = '<div class="empty">暂无 FUTURESETF 数据</div>';
+    return;
+  }
+  var cols = ['代码','底层主力合约','主力价格','最新价','基金净值(盘中)','溢价率(盘中)','历史百分位','买一价','卖一价','买一量','卖一量','更新时间','报告'];
+  var h = '<table><thead><tr>';
+  for (var i=0;i<cols.length;i++) { h += '<th>'+cols[i]+'</th>'; }
+  h += '</tr></thead><tbody>';
+  for (var r=0;r<rows.length;r++) {
+    var row = rows[r];
+    var code = String(row['代码']).split('(')[0];
+    var pct = row['溢价率'];
+    var pctClass = (pct && pct !== '') ? (valNum(pct) < 0 ? 'neg' : 'pos') : '';
+    var hp = row['历史百分位'];
+    var hpNum = valNum(hp);
+    var hpClass = '', hpLabel = '';
+    if (hp && hp !== '') {
+      if (hpNum >= 80) { hpClass = 'neg'; hpLabel = ' 高估'; }
+      else if (hpNum <= 20) { hpClass = 'pos'; hpLabel = ' 低估'; }
+    }
+    h += '<tr data-code="'+esc(code)+'" style="cursor:pointer">';
+    h += '<td>'+esc(row['代码'])+'</td>';
+    h += '<td>'+esc(row['底层主力合约'])+'</td>';
+    h += '<td>'+esc(row['主力价格'])+'</td>';
+    h += '<td>'+esc(row['最新价'])+'</td>';
+    h += '<td>'+esc(row['基金净值'])+'</td>';
+    h += '<td class="pct '+pctClass+'">'+esc(pct)+'</td>';
+    h += '<td class="pct '+hpClass+'">'+esc(hp)+esc(hpLabel)+'</td>';
+    h += '<td>'+esc(row['买一价'])+'</td>';
+    h += '<td>'+esc(row['卖一价'])+'</td>';
+    h += '<td>'+esc(row['买一量'])+'</td>';
+    h += '<td>'+esc(row['卖一量'])+'</td>';
+    h += '<td>'+esc(row['更新时间'])+'</td>';
+    h += '<td><a href="'+esc(row['报告链接'])+'" target="_blank" rel="noopener">查看</a></td>';
+    h += '</tr>';
+  }
+  h += '</tbody></table>';
+  box.innerHTML = h;
+}
+
+// 点击 FUTURESETF 表格行 -> 跳转该 ETF 的历史溢价率页
+document.getElementById('futureEtf').addEventListener('click', function(e) {
+  if (e.target.closest('a')) return;  // "报告"链接自己跳转
+  var tr = e.target.closest('tr[data-code]');
+  if (!tr) return;
+  var code = tr.getAttribute('data-code');
+  window.location.href = '/history?code=' + encodeURIComponent(code) + (TOKEN ? '&token=' + encodeURIComponent(TOKEN) : '');
+});
+
+async function refreshFutureEtf() {
+  try {
+    var url = '/api/futuresetf' + (TOKEN ? '?token=' + encodeURIComponent(TOKEN) : '');
+    var res = await fetch(url);
+    if (res.status === 401) { return; }
+    var data = await res.json();
+    if (data && data.error) throw new Error(data.error);
+    renderFutureEtf(Array.isArray(data) ? data : []);
+  } catch(e) {
+    document.getElementById('futureEtf').innerHTML = '<div class="empty">连接失败，重试中...</div>';
+  }
+}
+
 populateCategoryFilter();
 populateFilter();
 refresh();
 setInterval(refresh, 3000);
+refreshFutureEtf();
+setInterval(refreshFutureEtf, 3000);
+
+// 历史溢价率二级页面链接(带上访问令牌)
+var histLink = document.getElementById('histLink');
+if (histLink) histLink.href = '/history' + (TOKEN ? '?token=' + encodeURIComponent(TOKEN) : '');
 
 // ngrok 免费版提示: 如果其他电脑打开是空白页, 说明被 ngrok 拦截页挡住了
 // 请在空白页按 F12 打开控制台, 执行下面这行后刷新:
@@ -449,11 +529,310 @@ setInterval(refresh, 3000);
 </body>
 </html>'''
 
+    # 历史溢价率二级页面 (通达信日K + 天天基金历史净值)
+    HTML_HISTORY = r'''<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>历史溢价率 - Palmmicro</title>
+<style>
+:root {
+  --bg:#f7f8fa; --card:#ffffff; --border:#e1e4e8; --text:#24292f; --muted:#57606a;
+  --green:#1a7f37; --red:#cf222e; --link:#0969da;
+  --chart-surface:#fcfcfb; --chart-ink:#0b0b0b; --chart-secondary:#52514e;
+  --chart-muted:#898781; --chart-grid:#e1e0d9; --chart-baseline:#c3c2b7;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:#0d1117; --card:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e;
+    --green:#3fb950; --red:#f85149; --link:#58a6ff;
+    --chart-surface:#1a1a19; --chart-ink:#ffffff; --chart-secondary:#c3c2b7;
+    --chart-muted:#898781; --chart-grid:#2c2c2a; --chart-baseline:#383835;
+  }
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--text); padding:20px; }
+.header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px; }
+.header h1 { font-size:20px; font-weight:700; }
+.header a.back { font-size:13px; color:var(--link); text-decoration:none; }
+.filters { display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+.filters label { font-size:13px; color:var(--muted); font-weight:600; }
+.filters select { padding:5px 8px; border:1px solid var(--border); border-radius:6px; font-size:13px; background:var(--card); color:var(--text); cursor:pointer; }
+.card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,0.05); margin-bottom:16px; }
+.card h2 { font-size:13px; font-weight:600; color:var(--muted); margin-bottom:10px; }
+.chart-wrap { position:relative; }
+#chart { width:100%; height:auto; display:block; background:var(--chart-surface); border-radius:6px; }
+#chart .area-pos { fill:var(--green); opacity:0.10; }
+#chart .area-neg { fill:var(--red); opacity:0.10; }
+#chart .line { fill:none; stroke:var(--chart-ink); stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
+#chart .zero { stroke:var(--chart-baseline); stroke-width:1; }
+#chart .grid { stroke:var(--chart-grid); stroke-width:1; }
+#chart .axis { stroke:var(--chart-baseline); stroke-width:1; }
+#chart .tick { fill:var(--chart-muted); font-size:11px; }
+#chart .crosshair { stroke:var(--chart-secondary); stroke-width:1; }
+.tooltip { position:absolute; pointer-events:none; background:var(--card); border:1px solid var(--border); border-radius:6px; padding:8px 10px; font-size:12px; box-shadow:0 4px 12px rgba(0,0,0,0.12); display:none; white-space:nowrap; }
+.tooltip .k { color:var(--muted); line-height:1.6; }
+.tooltip .v { font-weight:700; color:var(--text); }
+.tooltip .pos { color:var(--green); font-weight:700; }
+.tooltip .neg { color:var(--red); font-weight:700; }
+.table-wrap { overflow:auto; }
+table { border-collapse:collapse; width:100%; font-size:13px; }
+th { text-align:right; border-bottom:1px solid var(--border); padding:6px 10px; color:var(--muted); font-weight:600; white-space:nowrap; }
+th:first-child, td:first-child { text-align:left; }
+td { border-bottom:1px solid var(--border); padding:5px 10px; text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+td.prem.pos { color:var(--green); font-weight:600; }
+td.prem.neg { color:var(--red); font-weight:600; }
+.empty { text-align:center; color:var(--muted); padding:40px; font-size:14px; }
+.stats { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+.stat { flex:1; min-width:120px; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 14px; }
+.stat .lbl { font-size:12px; color:var(--muted); }
+.stat .val { font-size:20px; font-weight:700; margin-top:2px; font-variant-numeric:tabular-nums; }
+.stat .val.pos { color:var(--green); }
+.stat .val.neg { color:var(--red); }
+#chart .refline-mean { stroke:var(--chart-muted); stroke-width:1; }
+#chart .refline-low { stroke:var(--green); stroke-width:1; }
+#chart .refline-high { stroke:var(--red); stroke-width:1; }
+#chart .reflabel-mean { fill:var(--chart-muted); font-size:10px; }
+#chart .reflabel-low { fill:var(--green); font-size:10px; }
+#chart .reflabel-high { fill:var(--red); font-size:10px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>历史溢价率</h1>
+  <a class="back" href="/" id="backLink">← 返回实时面板</a>
+</div>
+<div class="filters">
+  <label for="codeSelect">ETF:</label>
+  <select id="codeSelect"></select>
+  <label for="rangeSelect">区间:</label>
+  <select id="rangeSelect">
+    <option value="22">近1月</option>
+    <option value="66">近3月</option>
+    <option value="120">近半年</option>
+    <option value="250" selected>近1年</option>
+  </select>
+</div>
+<div class="stats">
+  <div class="stat"><div class="lbl">百分位</div><div class="val" id="statPct">--</div></div>
+  <div class="stat"><div class="lbl">平均值</div><div class="val" id="statMean">--</div></div>
+  <div class="stat"><div class="lbl">低估线</div><div class="val" id="statLow">--</div></div>
+  <div class="stat"><div class="lbl">高估线</div><div class="val" id="statHigh">--</div></div>
+</div>
+<div class="card">
+  <h2>历史溢价率 (%) = 收盘价 / 收盘净值 − 1 · 绿=溢价 · 红=折价</h2>
+  <div class="chart-wrap">
+    <svg id="chart" viewBox="0 0 940 320" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+</div>
+<div class="card">
+  <h2>数据明细</h2>
+  <div class="table-wrap"><div id="tableBox"><div class="empty">加载中...</div></div></div>
+</div>
+<script>
+var TOKEN = new URLSearchParams(location.search).get('token') || '';
+document.getElementById('backLink').href = '/' + (TOKEN ? '?token=' + encodeURIComponent(TOKEN) : '');
+var SERIES = [];
+
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function api(path){ return path + (TOKEN ? ((path.indexOf('?')>=0?'&':'?') + 'token=' + encodeURIComponent(TOKEN)) : ''); }
+
+async function loadCodes() {
+  try {
+    var res = await fetch(api('/api/futuresetf'));
+    var data = await res.json();
+    if (data && data.error) throw new Error(data.error);
+    var labels = (data || []).map(function(r){ return String(r['代码']); });
+    var initial = new URLSearchParams(location.search).get('code') || '';
+    var sel = document.getElementById('codeSelect');
+    var html = '';
+    for (var i = 0; i < labels.length; i++) {
+      var code = labels[i].split('(')[0];
+      var selected = (initial && code === initial) || (!initial && i === 0);
+      html += '<option value="'+esc(code)+'"'+(selected?' selected':'')+'>'+esc(labels[i])+'</option>';
+    }
+    sel.innerHTML = html;
+    if (labels.length) loadHistory();
+    else document.getElementById('tableBox').innerHTML = '<div class="empty">暂无 FUTURESETF 数据</div>';
+  } catch(e) {
+    document.getElementById('tableBox').innerHTML = '<div class="empty">连接失败</div>';
+  }
+}
+
+async function loadHistory() {
+  var code = document.getElementById('codeSelect').value;
+  var count = document.getElementById('rangeSelect').value;
+  try {
+    var res = await fetch(api('/api/futuresetf/history?code=' + encodeURIComponent(code) + '&count=' + count));
+    var data = await res.json();
+    if (data && data.error) throw new Error(data.error);
+    SERIES = (data && data.series) || [];
+    renderChart(SERIES);
+    renderTable(SERIES);
+  } catch(e) {
+    document.getElementById('tableBox').innerHTML = '<div class="empty">连接失败，重试中...</div>';
+  }
+}
+
+function buildArea(series, X, Y, y0, sign) {
+  var d = '', i = 0, n = series.length;
+  while (i < n) {
+    var p = series[i].premium;
+    var ok = sign > 0 ? p >= 0 : p < 0;
+    if (!ok) { i++; continue; }
+    var j = i;
+    while (j < n && (sign > 0 ? series[j].premium >= 0 : series[j].premium < 0)) j++;
+    var x0 = X(i), x1 = X(j-1);
+    var seg = 'M ' + x0 + ' ' + Y(series[i].premium);
+    for (var k = i+1; k < j; k++) seg += ' L ' + X(k) + ' ' + Y(series[k].premium);
+    seg += ' L ' + x1 + ' ' + y0 + ' L ' + x0 + ' ' + y0 + ' Z';
+    d += seg;
+    i = j;
+  }
+  return d;
+}
+
+function quantile(arr, q) {
+  var a = arr.slice().sort(function(x,y){ return x-y; });
+  var pos = (a.length - 1) * q;
+  var base = Math.floor(pos);
+  var rest = pos - base;
+  if (a[base+1] !== undefined) return a[base] + rest * (a[base+1] - a[base]);
+  return a[base];
+}
+function fmtPct(v) { return (v*100).toFixed(2) + '%'; }
+
+function renderChart(series) {
+  var svg = document.getElementById('chart');
+  var W = 940, H = 320, padL = 58, padR = 88, padT = 16, padB = 34;
+  var iw = W - padL - padR, ih = H - padT - padB;
+  var n = series.length;
+  var sp = document.getElementById('statPct');
+  var sm = document.getElementById('statMean');
+  var sl = document.getElementById('statLow');
+  var sh = document.getElementById('statHigh');
+  if (!n) {
+    svg.innerHTML = '<text class="tick" x="470" y="160" text-anchor="middle">暂无数据</text>';
+    sp.textContent = '--'; sp.className = 'val';
+    sm.textContent = '--'; sl.textContent = '--'; sh.textContent = '--';
+    return;
+  }
+  var prem = series.map(function(d){ return d.premium; });
+  var lo = Math.min(0, Math.min.apply(null, prem));
+  var hi = Math.max(0, Math.max.apply(null, prem));
+  if (hi - lo < 0.002) { lo -= 0.001; hi += 0.001; }
+  var span = hi - lo;
+  lo -= span * 0.10; hi += span * 0.10; span = hi - lo;
+  var X = function(i){ return padL + (n <= 1 ? iw/2 : i * iw / (n - 1)); };
+  var Y = function(v){ return padT + (hi - v) / span * ih; };
+  var y0 = Y(0);
+  // 统计量
+  var mean = prem.reduce(function(a,b){ return a+b; }, 0) / n;
+  var low = quantile(prem, 0.2);
+  var high = quantile(prem, 0.8);
+  var last = prem[n-1];
+  var below = 0;
+  for (var i = 0; i < n; i++) if (prem[i] < last) below++;
+  var pct = below / n * 100;
+  var s = '';
+  var steps = 5;
+  for (var g = 0; g <= steps; g++) {
+    var v = lo + span * g / steps;
+    var y = Y(v);
+    s += '<line class="grid" x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'"/>';
+    s += '<text class="tick" x="'+(padL-6)+'" y="'+(y+4)+'" text-anchor="end">'+(v*100).toFixed(2)+'%</text>';
+  }
+  var tickN = Math.min(6, n);
+  for (var t = 0; t < tickN; t++) {
+    var idx = Math.round(t * (n-1) / Math.max(1, tickN-1));
+    s += '<text class="tick" x="'+X(idx)+'" y="'+(H-10)+'" text-anchor="middle">'+esc(series[idx].date.slice(5))+'</text>';
+  }
+  s += '<path class="area-pos" d="'+buildArea(series, X, Y, y0, +1)+'"/>';
+  s += '<path class="area-neg" d="'+buildArea(series, X, Y, y0, -1)+'"/>';
+  s += '<line class="zero" x1="'+padL+'" y1="'+y0+'" x2="'+(W-padR)+'" y2="'+y0+'"/>';
+  function refLine(label, value, lineClass, labelClass) {
+    var y = Y(value);
+    return '<line class="'+lineClass+'" x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'"/>'
+         + '<text class="'+labelClass+'" x="'+(W-padR+6)+'" y="'+(y+3)+'">'+label+' '+fmtPct(value)+'</text>';
+  }
+  s += refLine('均值', mean, 'refline-mean', 'reflabel-mean');
+  s += refLine('低估', low, 'refline-low', 'reflabel-low');
+  s += refLine('高估', high, 'refline-high', 'reflabel-high');
+  var dLine = 'M ' + X(0) + ' ' + Y(series[0].premium);
+  for (var i = 1; i < n; i++) dLine += ' L ' + X(i) + ' ' + Y(series[i].premium);
+  s += '<path class="line" d="'+dLine+'"/>';
+  s += '<line class="axis" x1="'+padL+'" y1="'+padT+'" x2="'+padL+'" y2="'+(H-padB)+'"/>';
+  s += '<line class="axis" x1="'+padL+'" y1="'+(H-padB)+'" x2="'+(W-padR)+'" y2="'+(H-padB)+'"/>';
+  s += '<line class="crosshair" id="ch" x1="0" y1="'+padT+'" x2="0" y2="'+(H-padB)+'" style="display:none"/>';
+  svg.innerHTML = s;
+  svg._series = series; svg._X = X; svg._Y = Y;
+  // 头部统计
+  var tag = pct >= 80 ? ' 高估' : (pct <= 20 ? ' 低估' : '');
+  sp.textContent = pct.toFixed(1) + '%' + tag;
+  sp.className = 'val ' + (pct >= 80 ? 'neg' : (pct <= 20 ? 'pos' : ''));
+  sm.textContent = fmtPct(mean);
+  sl.textContent = fmtPct(low);
+  sh.textContent = fmtPct(high);
+}
+
+function renderTable(series) {
+  var box = document.getElementById('tableBox');
+  if (!series.length) { box.innerHTML = '<div class="empty">暂无数据</div>'; return; }
+  var h = '<table><thead><tr><th>日期</th><th>收盘价</th><th>收盘净值</th><th>溢价率(收盘)</th></tr></thead><tbody>';
+  for (var i = series.length - 1; i >= 0; i--) {
+    var d = series[i];
+    var p = d.premium * 100;
+    var cls = p < 0 ? 'neg' : 'pos';
+    h += '<tr><td>'+esc(d.date)+'</td><td>'+d.price.toFixed(4)+'</td><td>'+d.nav.toFixed(4)+'</td><td class="prem '+cls+'">'+(p>=0?'+':'')+p.toFixed(2)+'%</td></tr>';
+  }
+  h += '</tbody></table>';
+  box.innerHTML = h;
+}
+
+(function(){
+  var svg = document.getElementById('chart');
+  var tip = document.getElementById('tooltip');
+  svg.addEventListener('mousemove', function(e){
+    var s = svg._series; if (!s || !s.length) return;
+    var rect = svg.getBoundingClientRect();
+    var mx = (e.clientX - rect.left) / rect.width * 940;
+    var best = 0, bd = Infinity;
+    for (var i = 0; i < s.length; i++) { var dx = Math.abs(svg._X(i) - mx); if (dx < bd) { bd = dx; best = i; } }
+    var d = s[best];
+    var p = d.premium * 100;
+    tip.innerHTML = '<div class="k">'+esc(d.date)+'</div>'
+      + '<div class="k">溢价率 <span class="'+(p<0?'neg':'pos')+'">'+(p>=0?'+':'')+p.toFixed(2)+'%</span></div>'
+      + '<div class="k">收盘价 <span class="v">'+d.price.toFixed(4)+'</span></div>'
+      + '<div class="k">净值 <span class="v">'+d.nav.toFixed(4)+'</span></div>';
+    tip.style.display = 'block';
+    var ch = document.getElementById('ch');
+    if (ch) { ch.setAttribute('x1', svg._X(best)); ch.setAttribute('x2', svg._X(best)); ch.style.display = ''; }
+    tip.style.left = Math.min(svg._X(best) / 940 * rect.width + 14, rect.width - 160) + 'px';
+    tip.style.top = Math.max(svg._Y(d.premium) / 320 * rect.height - 12, 0) + 'px';
+  });
+  svg.addEventListener('mouseleave', function(){
+    tip.style.display = 'none';
+    var ch = document.getElementById('ch'); if (ch) ch.style.display = 'none';
+  });
+})();
+
+document.getElementById('codeSelect').addEventListener('change', loadHistory);
+document.getElementById('rangeSelect').addEventListener('change', loadHistory);
+loadCodes();
+</script>
+</body>
+</html>'''
+
     def __init__(self, pdf, host='0.0.0.0', port=40006, token=None,
-                 extra_symbol_names=None, extra_hedge_names=None):
+                 extra_symbol_names=None, extra_hedge_names=None,
+                 future_etf_stock=None):
         self.pdf = pdf
         self.host = host
         self.port = port
+        # 通达信 FUTURESETF 板块数据源(可选), 用于第二个表格展示溢价率等接口数据
+        self.future_etf_stock = future_etf_stock
         # 访问令牌: 优先用显式参数, 否则从环境变量读取; 空表示不鉴权(仅本地)
         self.token = token if token is not None else os.environ.get('DASHBOARD_TOKEN', '')
         self.server = None
@@ -516,6 +895,12 @@ setInterval(refresh, 3000);
                     return
                 if self.path.split('?')[0] == '/api/data':
                     self._serve_data()
+                elif self.path.split('?')[0] == '/api/futuresetf':
+                    self._serve_future_etf()
+                elif self.path.split('?')[0] == '/api/futuresetf/history':
+                    self._serve_future_etf_history()
+                elif self.path.split('?')[0] == '/history':
+                    self._serve_history_html()
                 else:
                     self._serve_html()
 
@@ -596,6 +981,64 @@ setInterval(refresh, 3000);
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json; charset=utf-8')
                 self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(body)
+
+            def _get_future_etf(self):
+                """生成通达信 FUTURESETF 板块数据(第二个表格), 无数据源时返回空列表"""
+                if dashboard.future_etf_stock is None:
+                    return []
+                try:
+                    df = dashboard.future_etf_stock.GetDisplayDataFrame()
+                    if df is None or df.empty:
+                        return []
+                    df = df.fillna('')
+                    return df.to_dict(orient='records')
+                except Exception as e:
+                    return {'error': str(e)}
+
+            def _serve_future_etf(self):
+                data = self._get_future_etf()
+                body = json.dumps(data, ensure_ascii=False, default=str).encode('utf-8')
+
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json; charset=utf-8')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(body)
+
+            def _get_future_etf_history(self):
+                """生成某只期货ETF 的历史溢价率序列 (GET /api/futuresetf/history)"""
+                if dashboard.future_etf_stock is None:
+                    return {'error': '无 FUTURESETF 数据源'}
+                q = parse_qs(urlparse(self.path).query)
+                code = q.get('code', [''])[0]
+                try:
+                    count = int(q.get('count', ['120'])[0])
+                except ValueError:
+                    count = 120
+                if not code:
+                    return {'error': '缺少 code 参数'}
+                try:
+                    series = dashboard.future_etf_stock.GetHistoricalPremium(code, count)
+                    return {'code': code, 'series': series}
+                except Exception as e:
+                    return {'error': str(e)}
+
+            def _serve_future_etf_history(self):
+                data = self._get_future_etf_history()
+                body = json.dumps(data, ensure_ascii=False, default=str).encode('utf-8')
+
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json; charset=utf-8')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(body)
+
+            def _serve_history_html(self):
+                body = Dashboard.HTML_HISTORY.encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
                 self.end_headers()
                 self.wfile.write(body)
 
